@@ -1,6 +1,6 @@
 import { revalidatePath } from 'next/cache';
-import { Button, Card, Empty, Field, Input, Table } from '@kids/ui';
-import { SubmitButton } from '@kids/ui/client';
+import { Button, Card, Empty, Field, Input, Table, Textarea } from '@kids/ui';
+import { ActionForm, SubmitButton, type FormResult } from '@kids/ui/client';
 import { requireSession } from '@kids/auth/next';
 import { newId } from '@kids/schema';
 import { getEvent } from '@/lib/events';
@@ -19,6 +19,32 @@ async function addSlot(eventId: string, formData: FormData) {
   await schedules(event.sheetId).append(targets.map((小隊) => ({ 時段ID: newId('時段ID'), 小隊, ...base })));
   await writeLog(event.sheetId, session, '新增時段', '', `${base.日期} ${base.開始}-${base.結束} ${targets.join(',')}`);
   revalidatePath(`/events/${eventId}/schedule`);
+}
+
+/** 匯入舊版 groupSchedule.json：{ "小隊": [{ "area", "time": "9:41-9:56", "place" }] } */
+async function importJson(eventId: string, _: FormResult, formData: FormData): Promise<FormResult> {
+  'use server';
+  const session = requireSession({ roles: ['admin', 'manager'], eventId });
+  const event = await getEvent(eventId);
+  const date = String(formData.get('date') ?? '').trim();
+  let data: Record<string, { area?: string; time?: string; place?: string; content?: string }[]>;
+  try {
+    data = JSON.parse(String(formData.get('json') ?? ''));
+  } catch {
+    return { error: 'JSON 格式錯誤' };
+  }
+  const pad = (t: string) => t.trim().replace(/^(\d):/, '0$1:');
+  const rows = Object.entries(data).flatMap(([小隊, list]) =>
+    (Array.isArray(list) ? list : []).map((x) => {
+      const [開始 = '', 結束 = ''] = String(x.time ?? '').split('-');
+      return { 時段ID: newId('時段ID'), 小隊, 日期: date, 開始: pad(開始), 結束: pad(結束), 地點: String(x.place ?? ''), 內容: String(x.content ?? x.area ?? '') };
+    }),
+  );
+  if (rows.length === 0) return { error: '沒有可匯入的時段' };
+  await schedules(event.sheetId).append(rows);
+  await writeLog(event.sheetId, session, '匯入時間表', '', `${rows.length} 筆`);
+  revalidatePath(`/events/${eventId}/schedule`);
+  return { message: `已匯入 ${rows.length} 個時段` };
 }
 
 async function updateSlot(eventId: string, id: string, formData: FormData) {
@@ -86,6 +112,19 @@ export default async function SchedulePage({ params }: { params: { eventId: stri
             <SubmitButton>新增</SubmitButton>
           </div>
         </form>
+      </Card>
+      <Card title="匯入舊版時間表（groupSchedule.json）">
+        <ActionForm action={importJson.bind(null, params.eventId)} className="grid gap-3">
+          <Field label="日期" required>
+            <Input type="date" name="date" defaultValue={event.開始日期} required className="max-w-xs" />
+          </Field>
+          <Field label="JSON" hint='格式：{ "D001": [{ "area": "綠區", "time": "9:41-9:56", "place": "201教室" }] }'>
+            <Textarea name="json" rows={4} className="font-mono text-xs" />
+          </Field>
+          <div>
+            <SubmitButton variant="secondary">匯入</SubmitButton>
+          </div>
+        </ActionForm>
       </Card>
       <Card title={`時間表（${sorted.length}）`}>
         {sorted.length === 0 ? (
