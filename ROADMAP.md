@@ -8,7 +8,7 @@
 | 3 | data-tools | 從 eventDataClean 移植：年級分組、總表、家庭/手足、分隊、小隊長名單、Excel 匯出 | ✅ |
 | 4 | registration | 第一次報名、一般報名、同戶報名、資格規則、報到 QR、舊資料匯入（Excel / Sheet） | ✅ |
 | 5 | checkin | QR 報到、第一次報到補資料、現場報名、課程報到 | ✅ |
-| 6 | rollcall | 小隊/時段點名、即時統計、出席報表 | ⬜ |
+| 6 | rollcall | 小隊/時段點名、即時統計、出席報表 | ✅ |
 | 7 | admin | 問卷、報表設定與匯出 | ⬜ |
 
 ## 暫不處理
