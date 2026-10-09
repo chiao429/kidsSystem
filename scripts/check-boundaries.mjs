@@ -15,7 +15,7 @@ function walk(dir, app) {
       const src = readFileSync(p, 'utf8');
       for (const m of src.matchAll(/from\s+['"]([^'"]+)['"]/g)) {
         const spec = m[1];
-        const other = apps.find((a) => a !== app && (spec === `@easyevent/${a}` || spec.includes(`apps/${a}`) || spec.includes(`../${a}/`)));
+        const other = apps.find((a) => a !== app && (spec === `@kids/${a}` || spec.includes(`apps/${a}`) || spec.includes(`../${a}/`)));
         if (other) violations.push(`${relative(root, p)} → ${spec}`);
       }
     }

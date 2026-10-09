@@ -1,11 +1,11 @@
 import 'server-only';
-import { SheetTable } from '@easyevent/sheets-core';
+import { SheetTable } from '@kids/sheets-core';
 import {
   MASTER_TABLES, EVENT_TABLES,
   HouseholdTable, MemberTable, AccountTable, EventTable,
   RegistrationTable, CheckInTable, TeamTable, ScheduleTable,
   AttendanceTable, SurveyTable, SurveyResponseTable, LogTable,
-} from '@easyevent/schema';
+} from '@kids/schema';
 
 const MASTER_ID = process.env.GOOGLE_MASTER_SHEET_ID ?? '';
 

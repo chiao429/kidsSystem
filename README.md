@@ -1,9 +1,9 @@
-# EasyEvent 活動管理平台
+# kidsSystem 兒童活動管理平台
 
 由多個**獨立**系統組成，資料存放於 Google Sheets。
 
 ```
-EasyEvent/
+kidsSystem/
 ├── apps/                    每個系統一個資料夾，可獨立開發、部署
 │   ├── registration/  :3001 報名系統：第一次報名、一般報名、同戶報名、資格判斷
 │   ├── checkin/       :3002 報到系統：報到驗證、課程報到、現場報到（承接 EasyCheckIn）

@@ -1,4 +1,4 @@
-import type { TableDef, RowOf } from '@easyevent/schema';
+import type { TableDef, RowOf } from '@kids/schema';
 import { getSheetsClient } from './client';
 import { cached, invalidate } from './cache';
 
