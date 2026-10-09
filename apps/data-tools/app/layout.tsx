@@ -3,7 +3,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: '資料整理',
-  description: '分組、手足/家庭整理、分隊、名單匯出',
+  description: '分組、家庭/手足整理、分隊、名單匯出',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
