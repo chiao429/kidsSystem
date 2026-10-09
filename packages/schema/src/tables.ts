@@ -49,7 +49,7 @@ export const MemberTable = defineTable({
 export const AccountTable = defineTable({
   tab: '帳號',
   idColumn: '帳號',
-  headers: ['帳號', '密碼雜湊', '角色', '可管理活動', '小隊', '啟用'],
+  headers: ['帳號', '名稱', '密碼雜湊', '角色', '可管理活動', '小隊', '啟用'],
   owner: 'admin',
 });
 

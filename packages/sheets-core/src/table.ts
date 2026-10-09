@@ -134,6 +134,63 @@ export class SheetTable<T extends TableDef> {
     return { notFound };
   }
 
+  /** 依 ID 刪除整列（僅 owner 系統使用） */
+  async deleteByIds(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    const { rowNumberById } = await this.snapshot(true);
+    const rowNumbers = ids
+      .map((id) => rowNumberById.get(id))
+      .filter((n): n is number => !!n)
+      .sort((a, b) => b - a); // 由下往上刪，列號才不會位移
+    if (rowNumbers.length === 0) return;
+
+    const gid = await this.sheetGid();
+    await getSheetsClient().spreadsheets.batchUpdate({
+      spreadsheetId: this.spreadsheetId,
+      requestBody: {
+        requests: rowNumbers.map((n) => ({
+          deleteDimension: {
+            range: { sheetId: gid, dimension: 'ROWS', startIndex: n - 1, endIndex: n },
+          },
+        })),
+      },
+    });
+    invalidate(this.cacheKey);
+  }
+
+  /** 清空資料列並整批寫入（保留標題列；僅 owner 系統使用，例如重新分隊） */
+  async replaceAll(rows: Partial<RowOf<T>>[]): Promise<void> {
+    const { headerRow } = await this.snapshot(true);
+    const sheets = getSheetsClient();
+    await sheets.spreadsheets.values.clear({
+      spreadsheetId: this.spreadsheetId,
+      range: `'${this.def.tab}'!A2:ZZ`,
+    });
+    if (rows.length > 0) {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: this.spreadsheetId,
+        range: `'${this.def.tab}'!A2`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: rows.map((r) =>
+            headerRow.map((h) => (r as Record<string, string | undefined>)[h] ?? ''),
+          ),
+        },
+      });
+    }
+    invalidate(this.cacheKey);
+  }
+
+  private async sheetGid(): Promise<number> {
+    const meta = await getSheetsClient().spreadsheets.get({
+      spreadsheetId: this.spreadsheetId,
+      fields: 'sheets.properties',
+    });
+    const sheet = meta.data.sheets?.find((s) => s.properties?.title === this.def.tab);
+    if (sheet?.properties?.sheetId == null) throw new Error(`找不到分頁「${this.def.tab}」`);
+    return sheet.properties.sheetId;
+  }
+
   /** 若分頁不存在則建立，並寫入標題列 */
   async ensure(): Promise<void> {
     const sheets = getSheetsClient();
@@ -149,13 +206,25 @@ export class SheetTable<T extends TableDef> {
       spreadsheetId: this.spreadsheetId,
       range: `'${this.def.tab}'!1:1`,
     });
-    if (!head.data.values?.[0]?.length) {
+    const existing = (head.data.values?.[0] ?? []).map((h) => String(h).trim());
+    if (existing.length === 0) {
       await sheets.spreadsheets.values.update({
         spreadsheetId: this.spreadsheetId,
         range: `'${this.def.tab}'!A1`,
         valueInputOption: 'RAW',
         requestBody: { values: [[...this.def.headers]] },
       });
+    } else {
+      // 既有分頁缺少新欄位時補在最後面，不動既有欄位
+      const missing = this.def.headers.filter((h) => !existing.includes(h));
+      if (missing.length > 0) {
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: this.spreadsheetId,
+          range: `'${this.def.tab}'!${columnLetter(existing.length)}1`,
+          valueInputOption: 'RAW',
+          requestBody: { values: [missing] },
+        });
+      }
     }
     invalidate(this.cacheKey);
   }

@@ -12,7 +12,9 @@ kidsSystem/
 │   └── data-tools/    :3005 資料整理：分組、家庭/手足、分隊、名單匯出（承接 eventDataClean）
 └── packages/
     ├── schema/              資料契約：分頁名稱、欄位、狀態值、ID 產生
-    └── sheets-core/         Google Sheets 存取：依標題讀寫、依 ID 更新、快取、批次寫入
+    ├── sheets-core/         Google Sheets 存取：依標題讀寫、依 ID 更新、快取、批次寫入
+    ├── auth/                登入（帳號分頁）、session cookie、角色檢查
+    └── ui/                  共用外觀元件
 ```
 
 ## 開發
