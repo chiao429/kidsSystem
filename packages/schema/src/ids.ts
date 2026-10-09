@@ -18,6 +18,8 @@ export function newId(column: keyof typeof PREFIX, now = new Date()): string {
   return `${PREFIX[column]}-${date}-${rand}`;
 }
 
+/** 台北時間 "YYYY-MM-DD HH:mm:ss"（可直接字串排序） */
 export function nowString(now = new Date()): string {
-  return now.toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false });
+  const t = new Date(now.getTime() + 8 * 3600_000).toISOString();
+  return `${t.slice(0, 10)} ${t.slice(11, 19)}`;
 }
