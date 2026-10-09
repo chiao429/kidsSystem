@@ -1,20 +1,8 @@
 import type { TableDef, RowOf } from '@kids/schema';
-import { getSheetsClient } from './client';
+import { getBackend } from './backend';
 import { cached, invalidate } from './cache';
 
 const DEFAULT_TTL_MS = 10_000;
-
-/** 欄號（0 起算）轉 A1 欄名 */
-function columnLetter(index: number): string {
-  let n = index + 1;
-  let s = '';
-  while (n > 0) {
-    const r = (n - 1) % 26;
-    s = String.fromCharCode(65 + r) + s;
-    n = Math.floor((n - 1) / 26);
-  }
-  return s;
-}
 
 interface Snapshot<T extends TableDef> {
   /** 實際 Sheet 上的標題列（順序以 Sheet 為準） */
@@ -42,17 +30,14 @@ export class SheetTable<T extends TableDef> {
   }
 
   private async snapshot(fresh = false): Promise<Snapshot<T>> {
+    if (!this.spreadsheetId) throw new Error(`分頁「${this.def.tab}」沒有設定試算表 ID`);
     if (fresh) invalidate(this.cacheKey);
     return cached(this.cacheKey, this.ttlMs, async () => {
-      const res = await getSheetsClient().spreadsheets.values.get({
-        spreadsheetId: this.spreadsheetId,
-        range: `'${this.def.tab}'`,
-      });
-      const values = (res.data.values ?? []) as string[][];
+      const values = await getBackend().values(this.spreadsheetId, this.def.tab);
       const headerRow = (values[0] ?? []).map((h) => String(h).trim());
       const missing = this.def.headers.filter((h) => !headerRow.includes(h));
       if (missing.length > 0) {
-        throw new Error(`分頁「${this.def.tab}」缺少欄位：${missing.join('、')}`);
+        throw new Error(`分頁「${this.def.tab}」缺少欄位：${missing.join('、')}（請到後台執行「建立 / 檢查分頁」）`);
       }
 
       const idCol = headerRow.indexOf(this.def.idColumn);
@@ -81,19 +66,14 @@ export class SheetTable<T extends TableDef> {
     return rows.find((r) => r[this.def.idColumn as keyof RowOf<T>] === id);
   }
 
+  private toValues(headerRow: string[], rows: Partial<RowOf<T>>[]): string[][] {
+    return rows.map((r) => headerRow.map((h) => String((r as Record<string, string | undefined>)[h] ?? '')));
+  }
+
   async append(rows: Partial<RowOf<T>>[]): Promise<void> {
     if (rows.length === 0) return;
     const { headerRow } = await this.snapshot();
-    const values = rows.map((r) =>
-      headerRow.map((h) => (r as Record<string, string | undefined>)[h] ?? ''),
-    );
-    await getSheetsClient().spreadsheets.values.append({
-      spreadsheetId: this.spreadsheetId,
-      range: `'${this.def.tab}'!A1`,
-      valueInputOption: 'USER_ENTERED',
-      insertDataOption: 'INSERT_ROWS',
-      requestBody: { values },
-    });
+    await getBackend().appendRows(this.spreadsheetId, this.def.tab, this.toValues(headerRow, rows));
     invalidate(this.cacheKey);
   }
 
@@ -104,12 +84,12 @@ export class SheetTable<T extends TableDef> {
     if (patches.length === 0) return { notFound: [] };
     // 寫入前一律重新讀取，避免用到過期的列號
     const { headerRow, rowNumberById } = await this.snapshot(true);
-    const data: { range: string; values: string[][] }[] = [];
+    const cells: { row: number; col: number; value: string }[] = [];
     const notFound: string[] = [];
 
     for (const { id, changes } of patches) {
-      const rowNumber = rowNumberById.get(id);
-      if (!rowNumber) {
+      const row = rowNumberById.get(id);
+      if (!row) {
         notFound.push(id);
         continue;
       }
@@ -117,18 +97,12 @@ export class SheetTable<T extends TableDef> {
         if (header === this.def.idColumn) continue;
         const col = headerRow.indexOf(header);
         if (col < 0) throw new Error(`分頁「${this.def.tab}」沒有欄位「${header}」`);
-        data.push({
-          range: `'${this.def.tab}'!${columnLetter(col)}${rowNumber}`,
-          values: [[String(value ?? '')]],
-        });
+        cells.push({ row, col, value: String(value ?? '') });
       }
     }
 
-    if (data.length > 0) {
-      await getSheetsClient().spreadsheets.values.batchUpdate({
-        spreadsheetId: this.spreadsheetId,
-        requestBody: { valueInputOption: 'USER_ENTERED', data },
-      });
+    if (cells.length > 0) {
+      await getBackend().setCells(this.spreadsheetId, this.def.tab, cells);
       invalidate(this.cacheKey);
     }
     return { notFound };
@@ -138,93 +112,28 @@ export class SheetTable<T extends TableDef> {
   async deleteByIds(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
     const { rowNumberById } = await this.snapshot(true);
-    const rowNumbers = ids
-      .map((id) => rowNumberById.get(id))
-      .filter((n): n is number => !!n)
-      .sort((a, b) => b - a); // 由下往上刪，列號才不會位移
+    const rowNumbers = ids.map((id) => rowNumberById.get(id)).filter((n): n is number => !!n);
     if (rowNumbers.length === 0) return;
-
-    const gid = await this.sheetGid();
-    await getSheetsClient().spreadsheets.batchUpdate({
-      spreadsheetId: this.spreadsheetId,
-      requestBody: {
-        requests: rowNumbers.map((n) => ({
-          deleteDimension: {
-            range: { sheetId: gid, dimension: 'ROWS', startIndex: n - 1, endIndex: n },
-          },
-        })),
-      },
-    });
+    await getBackend().deleteRows(this.spreadsheetId, this.def.tab, rowNumbers);
     invalidate(this.cacheKey);
   }
 
   /** 清空資料列並整批寫入（保留標題列；僅 owner 系統使用，例如重新分隊） */
   async replaceAll(rows: Partial<RowOf<T>>[]): Promise<void> {
     const { headerRow } = await this.snapshot(true);
-    const sheets = getSheetsClient();
-    await sheets.spreadsheets.values.clear({
-      spreadsheetId: this.spreadsheetId,
-      range: `'${this.def.tab}'!A2:ZZ`,
-    });
-    if (rows.length > 0) {
-      await sheets.spreadsheets.values.update({
-        spreadsheetId: this.spreadsheetId,
-        range: `'${this.def.tab}'!A2`,
-        valueInputOption: 'USER_ENTERED',
-        requestBody: {
-          values: rows.map((r) =>
-            headerRow.map((h) => (r as Record<string, string | undefined>)[h] ?? ''),
-          ),
-        },
-      });
-    }
+    await getBackend().replaceData(this.spreadsheetId, this.def.tab, this.toValues(headerRow, rows));
     invalidate(this.cacheKey);
   }
 
-  private async sheetGid(): Promise<number> {
-    const meta = await getSheetsClient().spreadsheets.get({
-      spreadsheetId: this.spreadsheetId,
-      fields: 'sheets.properties',
-    });
-    const sheet = meta.data.sheets?.find((s) => s.properties?.title === this.def.tab);
-    if (sheet?.properties?.sheetId == null) throw new Error(`找不到分頁「${this.def.tab}」`);
-    return sheet.properties.sheetId;
-  }
-
-  /** 若分頁不存在則建立，並寫入標題列 */
+  /** 若分頁不存在則建立並寫入標題列；既有分頁缺少新欄位時補在最後面，不動既有欄位 */
   async ensure(): Promise<void> {
-    const sheets = getSheetsClient();
-    const meta = await sheets.spreadsheets.get({ spreadsheetId: this.spreadsheetId });
-    const exists = meta.data.sheets?.some((s) => s.properties?.title === this.def.tab);
-    if (!exists) {
-      await sheets.spreadsheets.batchUpdate({
-        spreadsheetId: this.spreadsheetId,
-        requestBody: { requests: [{ addSheet: { properties: { title: this.def.tab } } }] },
-      });
-    }
-    const head = await sheets.spreadsheets.values.get({
-      spreadsheetId: this.spreadsheetId,
-      range: `'${this.def.tab}'!1:1`,
-    });
-    const existing = (head.data.values?.[0] ?? []).map((h) => String(h).trim());
+    const backend = getBackend();
+    const existing = await backend.ensureTab(this.spreadsheetId, this.def.tab);
     if (existing.length === 0) {
-      await sheets.spreadsheets.values.update({
-        spreadsheetId: this.spreadsheetId,
-        range: `'${this.def.tab}'!A1`,
-        valueInputOption: 'RAW',
-        requestBody: { values: [[...this.def.headers]] },
-      });
+      await backend.setHeader(this.spreadsheetId, this.def.tab, 0, [...this.def.headers]);
     } else {
-      // 既有分頁缺少新欄位時補在最後面，不動既有欄位
       const missing = this.def.headers.filter((h) => !existing.includes(h));
-      if (missing.length > 0) {
-        await sheets.spreadsheets.values.update({
-          spreadsheetId: this.spreadsheetId,
-          range: `'${this.def.tab}'!${columnLetter(existing.length)}1`,
-          valueInputOption: 'RAW',
-          requestBody: { values: [missing] },
-        });
-      }
+      if (missing.length > 0) await backend.setHeader(this.spreadsheetId, this.def.tab, existing.length, missing);
     }
     invalidate(this.cacheKey);
   }

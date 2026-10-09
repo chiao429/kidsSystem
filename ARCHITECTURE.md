@@ -60,3 +60,8 @@
 Sheets API 每個 service account 每分鐘約 60 讀 / 60 寫。
 - 讀取：`SheetTable` 內建快取（預設 10 秒，同時請求共用一次），搜尋在前端本地名單中過濾
 - 寫入：報到/點名用 `append` 或 `updateByIds` 批次寫入
+
+## 開發注意事項
+
+- **表單欄位 `name` 一律用英文**：Next 14 的 Server Action 會把非 ASCII 的欄位名稱以 latin1 解碼（值不受影響），中文 name 會讀不到。
+- 本機開發可設定 `SHEETS_LOCAL_DIR`，以 JSON 檔模擬試算表，五個 app 指向同一個目錄即可互通資料。

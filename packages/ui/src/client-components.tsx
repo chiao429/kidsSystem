@@ -46,3 +46,33 @@ export function AutoRefresh({ intervalMs = 15_000 }: { intervalMs?: number }) {
   }, [router, intervalMs]);
   return null;
 }
+
+export interface FormResult {
+  error?: string;
+  message?: string;
+}
+
+/** 表單送出後在原地顯示錯誤/成功訊息，輸入內容不會被清掉 */
+export function ActionForm({
+  action,
+  children,
+  className,
+  id,
+}: {
+  action: (state: FormResult, formData: FormData) => Promise<FormResult>;
+  children: React.ReactNode;
+  className?: string;
+  id?: string;
+}) {
+  const [state, formAction] = useFormState(action, {});
+  return (
+    <form action={formAction} className={className} id={id}>
+      {children}
+      {(state.error || state.message) && (
+        <div className="col-span-full">
+          <Alert tone={state.error ? 'red' : 'green'}>{state.error ?? state.message}</Alert>
+        </div>
+      )}
+    </form>
+  );
+}

@@ -3,7 +3,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: '系統管理後台',
-  description: '活動與規則設定、帳號、問卷、報表',
+  description: '活動與規則設定、帳號、時間表、問卷、報表',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1,0 +1,20 @@
+import { Shell } from '@kids/ui';
+import { logout, requireSession } from '@kids/auth/next';
+
+export const dynamic = 'force-dynamic';
+
+async function logoutAction() {
+  'use server';
+  logout();
+}
+
+export default function MainLayout({ children }: { children: React.ReactNode }) {
+  const session = requireSession({ roles: ['admin', 'manager'] });
+  const nav = [{ href: '/', label: '活動' }];
+  if (session.role === 'admin') nav.push({ href: '/accounts', label: '帳號' }, { href: '/setup', label: '初始化' });
+  return (
+    <Shell title="系統管理後台" brand="#7c3aed" nav={nav} user={session.name} logoutAction={logoutAction}>
+      {children}
+    </Shell>
+  );
+}
