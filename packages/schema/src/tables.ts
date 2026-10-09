@@ -69,7 +69,7 @@ export const RegistrationTable = defineTable({
   tab: '報名',
   idColumn: '報名ID',
   headers: [
-    '報名ID', '成員ID', '家庭ID', '姓名', '年級', '報名類型', '課程',
+    '報名ID', '序號', '成員ID', '家庭ID', '姓名', '年級', '報名類型', '課程',
     '狀態', '來源', '報名時間', '備註',
   ],
   owner: 'registration',

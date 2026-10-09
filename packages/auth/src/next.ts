@@ -37,6 +37,7 @@ export interface LoginState {
 export async function loginWithForm(
   formData: FormData,
   allowedRoles: Role[],
+  redirectTo = '/',
 ): Promise<LoginState> {
   const account = String(formData.get('account') ?? '').trim();
   const password = String(formData.get('password') ?? '');
@@ -53,7 +54,7 @@ export async function loginWithForm(
     path: '/',
     expires: new Date(session.exp),
   });
-  redirect('/');
+  redirect(redirectTo);
 }
 
 export function logout(): never {
