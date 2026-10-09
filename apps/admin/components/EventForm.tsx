@@ -12,16 +12,19 @@ export function EventForm({
   action,
   event,
   rules = {},
+  defaultId,
 }: {
   action: (state: FormResult, formData: FormData) => Promise<FormResult>;
   event?: EventRow;
   rules?: EventRules;
+  /** 新增時預設的活動ID */
+  defaultId?: string;
 }) {
   const courses = (rules.courses ?? []).map((c) => (c.capacity ? `${c.name}|${c.capacity}` : c.name)).join('\n');
   return (
     <ActionForm action={action} className="grid gap-4 sm:grid-cols-2">
-      <Field label="活動ID" hint="英數字，建立後不可修改，例如 2026-winter" required>
-        <Input name="id" defaultValue={event?.活動ID} readOnly={!!event} pattern="[A-Za-z0-9_\-]+" required />
+      <Field label="活動ID" hint="英數字，建立後不可修改；預設 kids＋今天日期" required>
+        <Input name="id" defaultValue={event?.活動ID ?? defaultId} readOnly={!!event} pattern="[A-Za-z0-9_\-]+" required />
       </Field>
       <Field label="名稱" required>
         <Input name="name" defaultValue={event?.名稱} required />
