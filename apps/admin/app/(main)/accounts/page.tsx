@@ -20,6 +20,7 @@ async function saveAccount(_: FormResult, formData: FormData): Promise<FormResul
   const 角色 = s('role');
   if (!roleMap.has(角色)) return { error: '請選擇角色' };
   if (帳號 === session.account && 角色 !== session.role) return { error: '不能變更自己的角色' };
+  if (帳號 === session.account && formData.get('enabled') !== 'on') return { error: '不能停用自己的帳號' };
   const changes = {
     名稱: s('displayName'),
     角色,

@@ -25,7 +25,7 @@ async function loadRoles() {
  * 以「帳號」表驗證，權限依「角色」表（沒有資料時用內建角色）。
  * 帳號表還沒有任何系統管理員時，可用 ADMIN_BOOTSTRAP_PASSWORD 以帳號 admin 登入做初始設定。
  */
-export async function authenticate(accountInput: string, password: string): Promise<Session | null> {
+export async function authenticate(accountInput: string, password: string): Promise<Session | 'disabled' | null> {
   const exp = Date.now() + SESSION_HOURS * 3600_000;
   const account = normalizeAccount(accountInput);
   let rows: Awaited<ReturnType<ReturnType<typeof accountTable>['all']>> = [];
@@ -48,7 +48,8 @@ export async function authenticate(accountInput: string, password: string): Prom
   }
 
   const row = rows.find((r) => r.帳號 === account);
-  if (!row || row.啟用 === 'N' || !verifyPassword(password, row.密碼雜湊)) return null;
+  if (!row || !verifyPassword(password, row.密碼雜湊)) return null;
+  if (row.啟用 === 'N') return 'disabled';
   const role = roles.get(row.角色) ?? roles.get('staff')!;
   return {
     account: row.帳號,

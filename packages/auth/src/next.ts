@@ -125,6 +125,7 @@ export async function loginWithForm(formData: FormData, permission: Permission, 
   if (!account || !password) return { error: '請輸入帳號與密碼' };
 
   const session = await authenticate(account, password);
+  if (session === 'disabled') return { error: '此帳號已停用，請聯絡系統管理員' };
   if (!session) return { error: '帳號或密碼錯誤' };
   if (!session.mustChangePassword && !session.permissions.includes(permission)) return { error: '此帳號沒有使用本系統的權限' };
 
