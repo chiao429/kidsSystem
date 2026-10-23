@@ -154,6 +154,8 @@ export async function importRows(event: EventInfo, raw: Raw[], dryRun: boolean):
       來源: RegistrationSource.Import,
       報名時間: now,
       備註: row.serial ? `原報名序號 ${row.serial}` : '',
+      照片影片公開同意: '',
+      後續活動通知同意: '',
     });
   });
 

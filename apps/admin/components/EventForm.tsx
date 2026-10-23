@@ -82,6 +82,9 @@ export function EventForm({
         <Field label="名額" hint="0 表示不限；額滿後轉備取">
           <Input type="number" min={0} name="capacity" defaultValue={rules.capacity ?? 0} />
         </Field>
+        <Field label="每位兒童最多選課數" hint="0 表示不限；例如填 1 即只能選一門">
+          <Input type="number" min={0} name="maxCoursesPerMember" defaultValue={rules.maxCoursesPerMember ?? 0} />
+        </Field>
         <Field label="啟用的分組類型" hint="可同時啟用；課程請在活動的「分組」頁建立">
           <div className="flex gap-4 pt-2 text-sm">
             {GROUP_TYPES.map((t) => (
@@ -97,6 +100,9 @@ export function EventForm({
           </label>
           <label className="flex items-center gap-2">
             <input type="checkbox" name="existingOnly" defaultChecked={rules.existingOnly ?? false} /> 只開放已有資料的家庭報名
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" name="allowOnSiteCourseRegistration" defaultChecked={rules.allowOnSiteCourseRegistration ?? true} /> 允許現場報名課程
           </label>
         </div>
       </fieldset>

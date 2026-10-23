@@ -28,6 +28,8 @@ export interface RegisterPayload {
   /** 既有家庭：以手機號碼查詢 */
   lookup?: { phone: string };
   consent: boolean;
+  photoConsent: boolean;
+  followUpConsent: boolean;
 }
 
 export interface RegisterResult {
@@ -51,4 +53,17 @@ export interface CourseOption {
   full: boolean;
   /** 剩餘名額；不限名額為 null */
   remaining: number | null;
+  groupName: string;
+  audience: string;
+  minGrade: string;
+  maxGrade: string;
+  minAge: number | null;
+  maxAge: number | null;
+  fee: number;
+  description: string;
+  notice: string;
+  registrationStart: string;
+  registrationEnd: string;
+  registrationState: 'open' | 'upcoming' | 'closed';
+  allowOnSite: boolean;
 }

@@ -55,6 +55,40 @@ export default async function GroupsPage({ params, searchParams }: { params: { e
                   <Field label="名額">
                     <Input name="capacity" type="number" min={0} defaultValue={g?.名額} />
                   </Field>
+                  <Field label="課程分組">
+                    <Input name="courseGroup" defaultValue={g?.課程分組} placeholder="角落活動" />
+                  </Field>
+                  <Field label="適用對象">
+                    <Input name="audience" defaultValue={g?.適用對象} placeholder="學齡前" />
+                  </Field>
+                  <Field label="最低年級">
+                    <Input name="minGrade" defaultValue={g?.最低年級} placeholder="小班" />
+                  </Field>
+                  <Field label="最高年級">
+                    <Input name="maxGrade" defaultValue={g?.最高年級} placeholder="大班" />
+                  </Field>
+                  <Field label="最低年齡">
+                    <Input name="minAge" type="number" min={0} step="0.1" defaultValue={g?.最低年齡} />
+                  </Field>
+                  <Field label="最高年齡">
+                    <Input name="maxAge" type="number" min={0} step="0.1" defaultValue={g?.最高年齡} />
+                  </Field>
+                  <Field label="材料費">
+                    <Input name="fee" type="number" min={0} step={1} defaultValue={g?.材料費} />
+                  </Field>
+                  <Field label="報名開始">
+                    <Input name="courseStart" type="datetime-local" defaultValue={g?.課程報名開始} />
+                  </Field>
+                  <Field label="報名截止">
+                    <Input name="courseEnd" type="datetime-local" defaultValue={g?.課程報名截止} />
+                  </Field>
+                  <Field label="注意事項">
+                    <Input name="notice" defaultValue={g?.注意事項} />
+                  </Field>
+                  <label className="flex items-center gap-2 pb-2 text-sm">
+                    <input type="checkbox" name="allowOnSite" defaultChecked={g?.允許現場報名 !== 'N'} />
+                    允許現場報名
+                  </label>
                 </>
               ) : (
                 <Field label="區域">

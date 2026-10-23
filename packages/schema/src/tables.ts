@@ -122,7 +122,7 @@ export const RegistrationTable = defineTable({
   idColumn: '報名ID',
   headers: [
     '報名ID', '序號', '成員ID', '家庭ID', '姓名', '年級', '報名類型',
-    '狀態', '來源', '報名時間', '備註',
+    '狀態', '來源', '報名時間', '備註', '照片影片公開同意', '後續活動通知同意',
   ],
   owner: 'registration',
   updatableBy: {
@@ -154,7 +154,11 @@ export const GroupTable = defineTable({
   key: 'groups',
   scope: 'event',
   idColumn: '分組ID',
-  headers: ['分組ID', '類型', '名稱', '代碼', '名額', '區域', '說明', '排序', '狀態'],
+  headers: [
+    '分組ID', '類型', '名稱', '代碼', '名額', '區域', '說明', '排序', '狀態',
+    '課程分組', '適用對象', '最低年級', '最高年級', '最低年齡', '最高年齡', '材料費',
+    '課程報名開始', '課程報名截止', '允許現場報名', '注意事項',
+  ],
   owner: { byColumn: '類型', owners: { 課程: ['admin'], 小隊: ['data-tools', 'admin'] } },
   uniqueKeys: [['類型', '名稱']],
 });

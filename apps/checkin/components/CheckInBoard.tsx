@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { Alert, Badge, Button, Card, Input, Select } from '@kids/ui';
 import { checkInMany, fetchBoard, lookupScan, setStatus, toggleFlag } from '@/lib/actions';
+import { CheckInStatus } from '@kids/schema';
 import type { ActionResult, Board, BoardRow, ScanRow } from '@/lib/types';
 import { ConfirmDialog, MessageDialog, ResultDialog, blockedReason, needsConfirm, type ResultState } from './CheckInDialogs';
 import { Scanner } from './Scanner';
@@ -189,7 +190,7 @@ export function CheckInBoard({ eventId, initial, registrationUrl }: { eventId: s
           pending={pending}
           onCancel={() => setConfirming(null)}
           onSetAbsent={async (報名ID) => {
-            const res = await setStatus(eventId, 報名ID, course, '不會出席');
+            const res = await setStatus(eventId, 報名ID, course, CheckInStatus.Absent);
             if (!res.error) {
               setConfirming((current) =>
                 current

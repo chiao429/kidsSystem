@@ -20,6 +20,8 @@ function readEventForm(formData: FormData) {
     capacity: Number(s('capacity')) || 0,
     autoAccept: formData.get('autoAccept') === 'on',
     existingOnly: formData.get('existingOnly') === 'on',
+    maxCoursesPerMember: Math.max(0, Math.floor(Number(s('maxCoursesPerMember')) || 0)),
+    allowOnSiteCourseRegistration: formData.get('allowOnSiteCourseRegistration') === 'on',
   };
   return {
     活動ID: s('id'),

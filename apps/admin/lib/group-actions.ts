@@ -13,21 +13,41 @@ async function context(eventId: string) {
   return { session, event: await getEvent(eventId) };
 }
 
-/** 新增或修改分組（課程：名稱、代碼、名額、說明、排序、狀態；小隊：名稱、區域、說明、排序、狀態） */
+/** 新增或修改分組（課程設定與小隊基本資料） */
 export async function saveGroup(eventId: string, 分組ID: string, 類型: string, _: FormResult, formData: FormData): Promise<FormResult> {
   const { session, event } = await context(eventId);
   if (!(GROUP_TYPES as string[]).includes(類型)) return { error: '無效的分組類型' };
   const s = (k: string) => String(formData.get(k) ?? '').trim();
+  const number = (key: string, integer = false) => {
+    const value = s(key);
+    if (!value) return '';
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed >= 0 && (!integer || Number.isInteger(parsed)) ? String(parsed) : 'INVALID';
+  };
   const changes = {
     名稱: s('name'),
     代碼: s('code'),
-    名額: s('capacity') && Number(s('capacity')) > 0 ? String(Number(s('capacity'))) : '',
+    名額: number('capacity', true),
     區域: s('area'),
     說明: s('note'),
     排序: s('order'),
     狀態: s('status') || '啟用',
+    課程分組: 類型 === GroupType.Course ? s('courseGroup') : '',
+    適用對象: 類型 === GroupType.Course ? s('audience') : '',
+    最低年級: 類型 === GroupType.Course ? s('minGrade') : '',
+    最高年級: 類型 === GroupType.Course ? s('maxGrade') : '',
+    最低年齡: 類型 === GroupType.Course ? number('minAge') : '',
+    最高年齡: 類型 === GroupType.Course ? number('maxAge') : '',
+    材料費: 類型 === GroupType.Course ? number('fee', true) : '',
+    課程報名開始: 類型 === GroupType.Course ? s('courseStart') : '',
+    課程報名截止: 類型 === GroupType.Course ? s('courseEnd') : '',
+    允許現場報名: 類型 === GroupType.Course ? (formData.get('allowOnSite') === 'on' ? 'Y' : 'N') : '',
+    注意事項: 類型 === GroupType.Course ? s('notice') : '',
   };
   if (!changes.名稱) return { error: '請填寫名稱' };
+  if (Object.values(changes).some((v) => v === 'INVALID')) return { error: '名額、年齡與材料費必須是非負數（名額與材料費需為整數）' };
+  if (changes.最低年齡 && changes.最高年齡 && Number(changes.最低年齡) > Number(changes.最高年齡)) return { error: '最低年齡不可高於最高年齡' };
+  if (changes.課程報名開始 && changes.課程報名截止 && new Date(changes.課程報名開始) > new Date(changes.課程報名截止)) return { error: '課程報名截止不可早於開始' };
   const table = groups(event.活動ID);
   const all = await table.all({ fresh: true });
   if (all.some((g) => g.類型 === 類型 && g.名稱 === changes.名稱 && g.分組ID !== 分組ID)) return { error: `已有同名${類型}` };

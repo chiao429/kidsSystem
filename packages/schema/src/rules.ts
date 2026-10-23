@@ -19,6 +19,10 @@ export interface EventRules {
   autoAccept?: boolean;
   /** 只開放既有家庭報名 */
   existingOnly?: boolean;
+  /** 每位成員最多可選課程數；0 表示不限 */
+  maxCoursesPerMember?: number;
+  /** 是否允許現場報名課程 */
+  allowOnSiteCourseRegistration?: boolean;
 }
 
 export function parseRules(json: string | undefined | null): EventRules {

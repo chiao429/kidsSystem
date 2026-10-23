@@ -142,7 +142,7 @@ export async function submitRegistration(payload: RegisterPayload): Promise<Regi
   const errors: string[] = [];
   for (const m of selected) {
     m.courses = Array.from(new Set(m.courses));
-    const err = checkMember(m, rules, regs, courses, courseCounts);
+    const err = checkMember(m, rules, regs, courses, courseCounts, { onSite, now: new Date() });
     if (err) errors.push(err);
     for (const c of m.courses) courseCounts.set(c, (courseCounts.get(c) ?? 0) + 1);
   }
@@ -203,6 +203,8 @@ export async function submitRegistration(payload: RegisterPayload): Promise<Regi
     來源: onSite ? RegistrationSource.OnSite : RegistrationSource.Online,
     報名時間: now,
     備註: '',
+    照片影片公開同意: payload.photoConsent ? '同意' : '不同意',
+    後續活動通知同意: payload.followUpConsent ? '同意' : '不同意',
   }));
   await registrations(event.活動ID).append(rows);
   // 選課寫入分組成員（每人每門課一列）

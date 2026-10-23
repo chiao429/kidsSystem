@@ -3,7 +3,8 @@
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Alert, Button, Card, Field, Input, Select, Textarea, buttonClass } from '@kids/ui';
+import { Alert, Badge, Button, Card, Field, Input, Select, Textarea, buttonClass } from '@kids/ui';
+import { gradeRank } from '@kids/schema';
 import { lookupHousehold, submitRegistration } from '@/lib/actions';
 import type { CourseOption, HouseholdInput, MemberInput } from '@/lib/types';
 
@@ -26,6 +27,8 @@ export function RegisterForm({
   grades,
   courses,
   defaultType,
+  maxCoursesPerMember,
+  allowOnSiteCourseRegistration,
 }: {
   eventId: string;
   mode: 'new' | 'returning';
@@ -33,6 +36,8 @@ export function RegisterForm({
   grades: string[];
   courses: CourseOption[];
   defaultType: string;
+  maxCoursesPerMember: number;
+  allowOnSiteCourseRegistration: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -45,6 +50,8 @@ export function RegisterForm({
   const [household, setHousehold] = useState<HouseholdInput>({ 主要聯絡人: '', 電話: '', Email: '', 地址: '' });
   const [members, setMembers] = useState<MemberInput[]>(mode === 'new' ? [emptyMember(defaultType)] : []);
   const [consent, setConsent] = useState(false);
+  const [photoConsent, setPhotoConsent] = useState(false);
+  const [followUpConsent, setFollowUpConsent] = useState(false);
 
   const updateMember = (i: number, patch: Partial<MemberInput>) =>
     setMembers((ms) => ms.map((m, idx) => (idx === i ? { ...m, ...patch } : m)));
@@ -77,6 +84,8 @@ export function RegisterForm({
         members,
         lookup: mode === 'returning' ? lookup : undefined,
         consent,
+        photoConsent,
+        followUpConsent,
       });
       if (res.error) {
         setError(res.error);
@@ -228,14 +237,15 @@ export function RegisterForm({
                 {courses.length > 0 && (
                   <div className="sm:col-span-3">
                     <div className="mb-1 text-sm font-medium text-gray-700">
-                      課程<span className="ml-0.5 text-red-500">*</span>
+                      課程<span className="ml-0.5 text-red-500">*</span>{maxCoursesPerMember > 0 && <span className="ml-2 text-xs font-normal text-gray-500">最多 {maxCoursesPerMember} 門</span>}
                     </div>
                     <div className="flex flex-wrap gap-3">
-                      {courses.map((c) => (
-                        <label key={c.id} className={`flex items-center gap-1.5 ${c.full ? 'text-gray-400' : ''}`}>
+                      {courses.filter((c) => (!c.minGrade || gradeRank(m.年級) >= gradeRank(c.minGrade)) && (!c.maxGrade || gradeRank(m.年級) <= gradeRank(c.maxGrade))).map((c) => (
+                        <label key={c.id} className={`flex max-w-sm items-start gap-1.5 ${c.full || c.registrationState !== 'open' ? 'text-gray-400' : ''}`}>
                           <input
-                            type="checkbox"
-                            disabled={c.full}
+                            type={maxCoursesPerMember === 1 ? 'radio' : 'checkbox'}
+                            name={maxCoursesPerMember === 1 ? `course-${i}` : undefined}
+                            disabled={c.full || c.registrationState !== 'open' || (!m.courses.includes(c.id) && !!maxCoursesPerMember && m.courses.length >= maxCoursesPerMember)}
                             checked={m.courses.includes(c.id)}
                             onChange={(e) =>
                               updateMember(i, {
@@ -243,11 +253,16 @@ export function RegisterForm({
                               })
                             }
                           />
-                          {c.name}
-                          {c.full ? '（額滿）' : c.remaining != null && c.remaining <= 5 ? `（剩 ${c.remaining} 名）` : ''}
+                          <span>
+                            <span className="font-medium">{c.name}</span>
+                            {c.groupName && <span className="ml-1 text-xs">[{c.groupName}]</span>}
+                            {c.full ? <Badge tone="red">額滿</Badge> : c.registrationState === 'upcoming' ? <Badge tone="gray">尚未開始</Badge> : c.registrationState === 'closed' ? <Badge tone="gray">已截止</Badge> : c.remaining != null && c.remaining <= 5 ? <span className="ml-1">（剩 {c.remaining} 名）</span> : null}
+                            {(c.audience || c.description || c.notice || c.fee > 0) && <span className="block text-xs text-gray-600">{[c.audience, c.description, c.fee > 0 ? `材料費 ${c.fee} 元` : '', c.notice].filter(Boolean).join('｜')}</span>}
+                          </span>
                         </label>
                       ))}
                     </div>
+                    {source === '現場' && !allowOnSiteCourseRegistration && <p className="mt-1 text-xs text-amber-700">此活動不開放現場報名課程</p>}
                   </div>
                 )}
               </div>
@@ -266,6 +281,14 @@ export function RegisterForm({
           <span>
             我同意主辦單位為辦理本活動（報名、報到、分組、聯繫與保險）蒐集並使用以上個人資料，資料僅於活動相關用途使用。
           </span>
+        </label>
+        <label className="mt-3 flex items-start gap-2 text-sm text-gray-700">
+          <input type="checkbox" className="mt-1" checked={photoConsent} onChange={(e) => setPhotoConsent(e.target.checked)} />
+          <span>我同意活動照片／影片於活動紀錄或成果分享中公開使用。</span>
+        </label>
+        <label className="mt-3 flex items-start gap-2 text-sm text-gray-700">
+          <input type="checkbox" className="mt-1" checked={followUpConsent} onChange={(e) => setFollowUpConsent(e.target.checked)} />
+          <span>我同意接收後續活動通知。</span>
         </label>
       </Card>
 
