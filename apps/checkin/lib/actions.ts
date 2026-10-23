@@ -69,6 +69,9 @@ export async function checkIn(
   const existing = (await checkIns(event.活動ID).all({ fresh: true })).find(
     (c) => checkInKey(c.報名ID, c.分組ID) === checkInKey(reg.報名ID, course),
   );
+  if (existing?.狀態 === CheckInStatus.Absent) {
+    return { error: `${reg.姓名} 已標記「不會出席」，如要報到請先按「恢復」` };
+  }
   if (existing?.狀態 === CheckInStatus.Arrived) {
     return { ok: true, message: `${reg.姓名} 已於 ${existing.報到時間} 報到過` };
   }

@@ -56,6 +56,10 @@ export function CheckInBoard({ eventId, initial, registrationUrl }: { eventId: s
     });
 
   const startCheckIn = (row: BoardRow, method = '搜尋') => {
+    if (row.報到狀態 === '不會出席') {
+      setFlash({ tone: 'red', text: `${row.姓名} 已標記「不會出席」，如要報到請先按「恢復」` });
+      return;
+    }
     if (row.報名類型 === '第一次報名' && !row.報到狀態 && !course) {
       setNote(row.特殊需求);
       setFirstTime({ row, method });
@@ -223,7 +227,13 @@ export function CheckInBoard({ eventId, initial, registrationUrl }: { eventId: s
                 </Button>
               ) : (
                 <>
-                  <Button size="lg" variant="success" disabled={pending} onClick={() => startCheckIn(r)}>
+                  <Button
+                    size="lg"
+                    variant="success"
+                    disabled={pending || r.報到狀態 === '不會出席'}
+                    title={r.報到狀態 === '不會出席' ? '已標記不會出席，請先按「恢復」' : undefined}
+                    onClick={() => startCheckIn(r)}
+                  >
                     報到
                   </Button>
                   <Button size="sm" variant="ghost" disabled={pending} onClick={() => act(() => toggleFlag(eventId, r.報名ID, course, '晚到', !r.晚到))}>
