@@ -1,13 +1,20 @@
 import 'server-only';
-import { attendance, schedules, teams } from './tables';
+import { RegistrationStatus, groupCounts } from '@kids/schema';
+import type { GroupRef } from './data';
+import { attendance, groupMembers, registrations, schedules } from './tables';
 
 export interface SlotCol {
   時段ID: string;
   label: string;
 }
 
-export async function loadStats(sheetId: string, allowed: string[]) {
-  const [tt, ss, aa] = await Promise.all([teams(sheetId).all(), schedules(sheetId).all(), attendance(sheetId).all()]);
+export async function loadStats(eventId: string, allowed: GroupRef[]) {
+  const [gm, regs, ss, aa] = await Promise.all([
+    groupMembers(eventId).all(),
+    registrations(eventId).all(),
+    schedules(eventId).all(),
+    attendance(eventId).all(),
+  ]);
   const slotIds = Array.from(new Set(aa.map((a) => a.時段ID)));
   const slotById = new Map(ss.map((s) => [s.時段ID, s]));
   const cols: SlotCol[] = slotIds
@@ -22,17 +29,20 @@ export async function loadStats(sheetId: string, allowed: string[]) {
     .sort((a, b) => a.sort.localeCompare(b.sort))
     .map(({ 時段ID, label }) => ({ 時段ID, label }));
 
-  const teamRows = allowed.map((team) => {
-    const size = tt.filter((t) => t.小隊 === team && t.角色 === '隊員').length;
+  const cancelled = new Set(regs.filter((r) => r.狀態 === RegistrationStatus.Cancelled).map((r) => r.報名ID));
+  const sizes = groupCounts(gm, undefined, cancelled);
+  const teamRows = allowed.map((g) => {
+    const size = sizes.get(g.分組ID) ?? 0;
     const cells = cols.map((c) => {
-      const list = aa.filter((a) => a.小隊 === team && a.時段ID === c.時段ID);
+      const list = aa.filter((a) => a.分組ID === g.分組ID && a.時段ID === c.時段ID);
       const present = list.filter((a) => a.狀態 === '出席' || a.狀態 === '遲到').length;
       return { present, recorded: list.length, absent: list.filter((a) => a.狀態 === '缺席').length };
     });
-    return { team, size, cells };
+    return { team: g.分組ID, name: `${g.名稱}`, type: g.類型, size, cells };
   });
 
-  const recorded = aa.filter((a) => allowed.includes(a.小隊));
+  const allowedIds = new Set(allowed.map((g) => g.分組ID));
+  const recorded = aa.filter((a) => allowedIds.has(a.分組ID));
   const present = recorded.filter((a) => a.狀態 === '出席' || a.狀態 === '遲到').length;
   return { cols, teamRows, totals: { recorded: recorded.length, present, rate: recorded.length ? present / recorded.length : 0 } };
 }

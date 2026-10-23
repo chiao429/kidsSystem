@@ -16,7 +16,9 @@
   },
   "exports": {
     ".": "./src/index.ts",
-    "./next": "./src/next.ts"
+    "./next": "./src/next.ts",
+    "./paths": "./src/paths.ts",
+    "./middleware": "./src/middleware.ts"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",

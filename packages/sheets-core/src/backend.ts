@@ -161,6 +161,14 @@ function localBackend(dir: string): Backend {
   };
 }
 
+/** 指定來源的 backend（搬遷用）：sheets = Google Sheets；local = SHEETS_LOCAL_DIR 的 JSON */
+export function backendFor(source: 'sheets' | 'local'): Backend {
+  if (source === 'sheets') return googleBackend;
+  const dir = process.env.SHEETS_LOCAL_DIR;
+  if (!dir) throw new Error('SHEETS_LOCAL_DIR 未設定');
+  return localBackend(path.resolve(dir));
+}
+
 let backend: Backend | null = null;
 
 export function getBackend(): Backend {

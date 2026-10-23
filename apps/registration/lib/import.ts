@@ -87,7 +87,7 @@ export async function importRows(event: EventInfo, raw: Raw[], dryRun: boolean):
   const [hh, mm, regs] = await Promise.all([
     households().all({ fresh: true }),
     members().all({ fresh: true }),
-    registrations(event.sheetId).all({ fresh: true }),
+    registrations(event.活動ID).all({ fresh: true }),
   ]);
   const newHH: RowOf<typeof HouseholdTable>[] = [];
   const newMM: RowOf<typeof MemberTable>[] = [];
@@ -150,7 +150,6 @@ export async function importRows(event: EventInfo, raw: Raw[], dryRun: boolean):
       姓名: member.姓名,
       年級: member.年級,
       報名類型: newHH.includes(household) ? RegistrationType.FirstTime : RegistrationType.General,
-      課程: '',
       狀態: RegistrationStatus.Accepted,
       來源: RegistrationSource.Import,
       報名時間: now,
@@ -164,7 +163,7 @@ export async function importRows(event: EventInfo, raw: Raw[], dryRun: boolean):
   if (!dryRun) {
     await households().append(newHH);
     await members().append(newMM);
-    await registrations(event.sheetId).append(newRegs);
+    await registrations(event.活動ID).append(newRegs);
   }
   return summary;
 }

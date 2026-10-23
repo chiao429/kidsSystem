@@ -1,64 +1,88 @@
-import type { TableDef, RowOf } from '@kids/schema';
+import { EventTable, isOwner, type RowOf, type SystemName, type TableDef } from '@kids/schema';
 import { getBackend } from './backend';
 import { cached, invalidate } from './cache';
+import { extractSheetIdFromUrl } from './client';
+import { MongoStore } from './mongo';
+import { SheetsStore } from './sheets-store';
+import { matchesFilter, type RowFilter, type TableStore, type UpsertResult } from './store';
 
-const DEFAULT_TTL_MS = 10_000;
+export type DataBackend = 'mongo' | 'sheets';
 
-interface Snapshot<T extends TableDef> {
-  /** 實際 Sheet 上的標題列（順序以 Sheet 為準） */
-  headerRow: string[];
-  rows: RowOf<T>[];
-  /** ID → Sheet 列號（1 起算，含標題列） */
-  rowNumberById: Map<string, number>;
+/** DATA_BACKEND=mongo 用 MongoDB；其餘用 Google Sheets（設了 SHEETS_LOCAL_DIR 則為本機 JSON） */
+export const dataBackend = (): DataBackend => (process.env.DATA_BACKEND === 'mongo' ? 'mongo' : 'sheets');
+
+const masterSheetId = () => process.env.GOOGLE_MASTER_SHEET_ID ?? '';
+
+/** scope → 試算表 ID（master 為主資料試算表；活動為「活動試算表」欄） */
+export async function resolveSheetId(scope: string): Promise<string> {
+  if (scope === 'master') return masterSheetId();
+  return cached(`sheetId:${scope}`, 60_000, async () => {
+    const values = await getBackend().values(masterSheetId(), EventTable.tab);
+    const head = (values[0] ?? []).map((h) => String(h).trim());
+    const idCol = head.indexOf(EventTable.idColumn);
+    const urlCol = head.indexOf('活動試算表');
+    const row = values.slice(1).find((r) => String(r[idCol] ?? '').trim() === scope);
+    const id = row ? extractSheetIdFromUrl(String(row[urlCol] ?? '')) : '';
+    if (!id) throw new Error(`找不到活動 ${scope} 的活動試算表`); // 不快取找不到的結果
+    return id;
+  });
 }
 
+export class PermissionError extends Error {}
+
 /**
- * 以標題名稱讀寫單一分頁。
- * - 讀：整張讀回後轉成 { 標題: 值 }，有短暫快取
- * - 新增：append，不覆寫既有列
- * - 更新：依 ID 找列號，只寫入有變動的欄位（一次 batchUpdate）
+ * 依標題名稱讀寫單一表，並強制資料歸屬規則：
+ * - 新增、刪除、取代、upsert 新建：只有 owner（依類型決定時看每列的類型值）
+ * - 更新既有列：owner 不限欄位；其他系統只能改 updatableBy[actor]
+ * - 日誌表所有系統皆可 append
+ * - READ_ONLY=1 時拒絕所有寫入（正式切換期間）
  */
 export class SheetTable<T extends TableDef> {
-  constructor(
-    readonly spreadsheetId: string,
-    readonly def: T,
-    private readonly ttlMs = DEFAULT_TTL_MS,
-  ) {}
+  private readonly store: TableStore<T>;
+  private readonly ttlMs: number;
 
-  private get cacheKey() {
-    return `${this.spreadsheetId}:${this.def.tab}`;
+  constructor(
+    readonly scope: string,
+    readonly def: T,
+    readonly actor: SystemName,
+    opts: { ttlMs?: number } = {},
+  ) {
+    if (def.scope === 'master' && scope !== 'master') throw new Error(`「${def.tab}」是主資料表，scope 必須為 master`);
+    if (!scope) throw new Error(`「${def.tab}」沒有指定活動`);
+    const mongo = dataBackend() === 'mongo';
+    this.store = mongo ? new MongoStore(scope, def) : new SheetsStore(() => resolveSheetId(scope), def);
+    this.ttlMs = opts.ttlMs ?? (mongo ? 2_000 : 10_000);
   }
 
-  private async snapshot(fresh = false): Promise<Snapshot<T>> {
-    if (!this.spreadsheetId) throw new Error(`分頁「${this.def.tab}」沒有設定試算表 ID`);
-    if (fresh) invalidate(this.cacheKey);
-    return cached(this.cacheKey, this.ttlMs, async () => {
-      const values = await getBackend().values(this.spreadsheetId, this.def.tab);
-      const headerRow = (values[0] ?? []).map((h) => String(h).trim());
-      const missing = this.def.headers.filter((h) => !headerRow.includes(h));
-      if (missing.length > 0) {
-        throw new Error(`分頁「${this.def.tab}」缺少欄位：${missing.join('、')}（請到後台執行「建立 / 檢查分頁」）`);
-      }
+  private get cacheKey() {
+    return `${this.def.key}:${this.scope}`;
+  }
 
-      const idCol = headerRow.indexOf(this.def.idColumn);
-      const rows: RowOf<T>[] = [];
-      const rowNumberById = new Map<string, number>();
-      values.slice(1).forEach((raw, i) => {
-        const id = String(raw[idCol] ?? '').trim();
-        if (!id) return;
-        const row = {} as Record<string, string>;
-        headerRow.forEach((h, c) => {
-          row[h] = raw[c] == null ? '' : String(raw[c]);
-        });
-        rows.push(row as RowOf<T>);
-        rowNumberById.set(id, i + 2);
-      });
-      return { headerRow, rows, rowNumberById };
-    });
+  private assertWritable() {
+    if (process.env.READ_ONLY === '1') throw new Error('系統維護中，暫停寫入');
+  }
+
+  private deny(what: string): never {
+    throw new PermissionError(`權限錯誤：${this.actor} 不可修改「${this.def.tab}.${what}」`);
+  }
+
+  private assertOwnerOf(rows: Partial<RowOf<T>>[]) {
+    if (this.def.key === 'logs') return;
+    for (const r of rows) {
+      if (!isOwner(this.def, this.actor, r as Record<string, string>)) {
+        const by = typeof this.def.owner === 'string' ? '' : (r as Record<string, string>)[this.def.owner.byColumn] ?? '';
+        this.deny(by || '新增/刪除');
+      }
+    }
+  }
+
+  private written() {
+    invalidate(this.cacheKey);
   }
 
   async all(opts: { fresh?: boolean } = {}): Promise<RowOf<T>[]> {
-    return (await this.snapshot(opts.fresh)).rows;
+    if (opts.fresh) invalidate(this.cacheKey);
+    return cached(this.cacheKey, this.ttlMs, () => this.store.all());
   }
 
   async findById(id: string, opts: { fresh?: boolean } = {}): Promise<RowOf<T> | undefined> {
@@ -66,75 +90,85 @@ export class SheetTable<T extends TableDef> {
     return rows.find((r) => r[this.def.idColumn as keyof RowOf<T>] === id);
   }
 
-  private toValues(headerRow: string[], rows: Partial<RowOf<T>>[]): string[][] {
-    return rows.map((r) => headerRow.map((h) => String((r as Record<string, string | undefined>)[h] ?? '')));
-  }
-
   async append(rows: Partial<RowOf<T>>[]): Promise<void> {
     if (rows.length === 0) return;
-    const { headerRow } = await this.snapshot();
-    await getBackend().appendRows(this.spreadsheetId, this.def.tab, this.toValues(headerRow, rows));
-    invalidate(this.cacheKey);
+    this.assertWritable();
+    this.assertOwnerOf(rows);
+    await this.store.append(rows);
+    this.written();
   }
 
   /** 依 ID 批次更新指定欄位；找不到的 ID 會回傳在 notFound */
-  async updateByIds(
-    patches: { id: string; changes: Partial<RowOf<T>> }[],
-  ): Promise<{ notFound: string[] }> {
+  async updateByIds(patches: { id: string; changes: Partial<RowOf<T>> }[]): Promise<{ notFound: string[] }> {
     if (patches.length === 0) return { notFound: [] };
-    // 寫入前一律重新讀取，避免用到過期的列號
-    const { headerRow, rowNumberById } = await this.snapshot(true);
-    const cells: { row: number; col: number; value: string }[] = [];
-    const notFound: string[] = [];
-
-    for (const { id, changes } of patches) {
-      const row = rowNumberById.get(id);
-      if (!row) {
-        notFound.push(id);
+    this.assertWritable();
+    const allowed = (this.def.updatableBy?.[this.actor] ?? []) as string[];
+    const needsRow = typeof this.def.owner !== 'string';
+    const current = needsRow ? new Map((await this.all({ fresh: true })).map((r) => [String(r[this.def.idColumn as keyof RowOf<T>]), r])) : null;
+    for (const p of patches) {
+      const owner = isOwner(this.def, this.actor, (current?.get(p.id) ?? {}) as Record<string, string>);
+      if (owner) {
+        // 依類型決定擁有者時，不可把列改成自己不擁有的類型
+        if (needsRow && !isOwner(this.def, this.actor, { ...(current?.get(p.id) ?? {}), ...p.changes } as Record<string, string>)) {
+          this.deny(String((p.changes as Record<string, string>)[(this.def.owner as { byColumn: string }).byColumn]));
+        }
         continue;
       }
-      for (const [header, value] of Object.entries(changes)) {
-        if (header === this.def.idColumn) continue;
-        const col = headerRow.indexOf(header);
-        if (col < 0) throw new Error(`分頁「${this.def.tab}」沒有欄位「${header}」`);
-        cells.push({ row, col, value: String(value ?? '') });
-      }
+      for (const k of Object.keys(p.changes)) if (!allowed.includes(k)) this.deny(k);
     }
-
-    if (cells.length > 0) {
-      await getBackend().setCells(this.spreadsheetId, this.def.tab, cells);
-      invalidate(this.cacheKey);
-    }
-    return { notFound };
+    const res = await this.store.updateByIds(patches);
+    this.written();
+    return res;
   }
 
-  /** 依 ID 刪除整列（僅 owner 系統使用） */
+  /** 依 ID 刪除（owner 才可以） */
   async deleteByIds(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
-    const { rowNumberById } = await this.snapshot(true);
-    const rowNumbers = ids.map((id) => rowNumberById.get(id)).filter((n): n is number => !!n);
-    if (rowNumbers.length === 0) return;
-    await getBackend().deleteRows(this.spreadsheetId, this.def.tab, rowNumbers);
-    invalidate(this.cacheKey);
+    this.assertWritable();
+    const rows = await this.all({ fresh: true });
+    const targets = rows.filter((r) => ids.includes(String(r[this.def.idColumn as keyof RowOf<T>])));
+    if (typeof this.def.owner === 'string') this.assertOwnerOf([{}]);
+    this.assertOwnerOf(targets);
+    await this.store.deleteByIds(ids);
+    this.written();
   }
 
-  /** 清空資料列並整批寫入（保留標題列；僅 owner 系統使用，例如重新分隊） */
+  /** 清空資料並整批寫入（owner 才可以） */
   async replaceAll(rows: Partial<RowOf<T>>[]): Promise<void> {
-    const { headerRow } = await this.snapshot(true);
-    await getBackend().replaceData(this.spreadsheetId, this.def.tab, this.toValues(headerRow, rows));
-    invalidate(this.cacheKey);
+    await this.replaceWhere(null, rows);
   }
 
-  /** 若分頁不存在則建立並寫入標題列；既有分頁缺少新欄位時補在最後面，不動既有欄位 */
+  /** 只取代符合條件的列，例如重新分隊時只換掉某區域的小隊隊員 */
+  async replaceWhere(filter: RowFilter<T> | null, rows: Partial<RowOf<T>>[]): Promise<void> {
+    this.assertWritable();
+    const removed = (await this.all({ fresh: true })).filter((r) => matchesFilter(r, filter));
+    this.assertOwnerOf([...removed, ...rows]);
+    if (typeof this.def.owner === 'string') this.assertOwnerOf([{}]);
+    await this.store.replaceWhere(filter, rows);
+    this.written();
+  }
+
+  /**
+   * 依唯一鍵新增或更新一列。新建需為 owner；更新既有列的規則同 updateByIds。
+   * row 需包含主鍵（新建時使用）。
+   */
+  async upsertByKey(keyColumns: T['headers'][number][], row: Partial<RowOf<T>>, onUpdate?: Partial<RowOf<T>>): Promise<UpsertResult<T>> {
+    this.assertWritable();
+    this.assertOwnerOf([row]);
+    const res = await this.store.upsertByKey(keyColumns, row, onUpdate);
+    this.written();
+    return res;
+  }
+
+  async upsertManyByKey(keyColumns: T['headers'][number][], rows: Partial<RowOf<T>>[]): Promise<UpsertResult<T>[]> {
+    const out: UpsertResult<T>[] = [];
+    for (const r of rows) out.push(await this.upsertByKey(keyColumns, r));
+    return out;
+  }
+
+  /** mongo：建立索引；sheets：建立分頁與標題列 */
   async ensure(): Promise<void> {
-    const backend = getBackend();
-    const existing = await backend.ensureTab(this.spreadsheetId, this.def.tab);
-    if (existing.length === 0) {
-      await backend.setHeader(this.spreadsheetId, this.def.tab, 0, [...this.def.headers]);
-    } else {
-      const missing = this.def.headers.filter((h) => !existing.includes(h));
-      if (missing.length > 0) await backend.setHeader(this.spreadsheetId, this.def.tab, existing.length, missing);
-    }
-    invalidate(this.cacheKey);
+    await this.store.ensure();
+    this.written();
   }
 }

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { requireSession } from '@kids/auth/next';
 import { Alert } from '@kids/ui';
 import { RollCall } from '@/components/RollCall';
-import { getEvent, loadRoll, loadSlots, loadTeams, today } from '@/lib/data';
+import { getEvent, loadGroups, loadRoll, loadSlots, today } from '@/lib/data';
 
 export default async function RollCallPage({
   params,
@@ -14,10 +14,12 @@ export default async function RollCallPage({
   const session = requireSession({ roles: ['admin', 'manager', 'staff'], eventId: params.eventId });
   const team = decodeURIComponent(params.team);
   const event = await getEvent(params.eventId);
-  if (!(await loadTeams(event.sheetId, session)).allowed.includes(team)) {
-    return <Alert>沒有「{team}」的點名權限</Alert>;
+  const { allowed, byId } = await loadGroups(event.活動ID, session, event.rules);
+  const group = allowed.find((g) => g.分組ID === team);
+  if (!group) {
+    return <Alert>沒有「{byId.get(team)?.名稱 ?? team}」的點名權限</Alert>;
   }
-  const slots = await loadSlots(event.sheetId, team);
+  const slots = await loadSlots(event.活動ID, group);
 
   // 預設：今天目前進行中的時段 → 今天最近的時段 → 最後一個
   const nowHM = new Date(Date.now() + 8 * 3600_000).toISOString().slice(11, 16);
@@ -28,7 +30,7 @@ export default async function RollCallPage({
     todays[todays.length - 1] ??
     slots[slots.length - 1];
   const slot = slots.find((s) => s.時段ID === searchParams.slot) ?? current;
-  const roll = await loadRoll(event.sheetId, team, slot.時段ID);
+  const roll = await loadRoll(event.活動ID, group, slot.時段ID);
   const base = `/e/${params.eventId}/t/${encodeURIComponent(team)}`;
 
   return (
@@ -37,7 +39,7 @@ export default async function RollCallPage({
         <Link href={`/e/${params.eventId}`} className="text-sm text-gray-500">
           ← {event.名稱}
         </Link>
-        <h1 className="text-2xl font-bold">{team} 點名</h1>
+        <h1 className="text-2xl font-bold">{group.名稱} {group.類型}點名</h1>
       </div>
       <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
         {slots.map((s) => (

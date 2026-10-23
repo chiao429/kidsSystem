@@ -1,15 +1,25 @@
+import type { Role } from '@kids/schema';
 import { LoginForm } from '@kids/ui/client';
-import { loginWithForm } from '@kids/auth/next';
+import { loginWithForm, redirectIfLoggedIn, safeNext, type LoginState } from '@kids/auth/next';
 
-async function login(_: { error: string }, formData: FormData) {
+const ROLES: Role[] = ['admin', 'manager', 'staff'];
+
+async function login(_: LoginState, formData: FormData) {
   'use server';
-  return loginWithForm(formData, ['admin', 'manager', 'staff']);
+  return loginWithForm(formData, ROLES);
 }
 
-export default function LoginPage() {
+export default function LoginPage({ searchParams }: { searchParams: { next?: string } }) {
+  const next = safeNext(searchParams.next);
+  redirectIfLoggedIn(ROLES, next);
   return (
     <div style={{ ['--brand' as string]: '#2563eb' }} className="px-4">
-      <LoginForm title="報到系統" action={login} />
+      <LoginForm title="報到系統" action={login} next={next} />
+      <p className="mt-4 text-center text-sm">
+        <a href="/staff" className="text-gray-500 underline">
+          同工入口
+        </a>
+      </p>
     </div>
   );
 }

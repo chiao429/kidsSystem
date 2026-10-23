@@ -4,6 +4,8 @@ const PREFIX = {
   報名ID: 'R',
   報到ID: 'C',
   小隊成員ID: 'T',
+  分組ID: 'G',
+  分組成員ID: 'T',
   時段ID: 'S',
   點名ID: 'A',
   問卷ID: 'Q',

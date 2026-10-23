@@ -1,12 +1,15 @@
 import 'server-only';
 import {
   GRADE_GROUP_ORDER,
+  GroupRole,
+  GroupType,
+  LEARNER_ROLES,
   RegistrationStatus,
   gradeGroup,
   gradeRank,
   siblingTitle,
 } from '@kids/schema';
-import { households, members, registrations, teams } from './tables';
+import { groupMembers, groups, households, members, registrations } from './tables';
 
 export interface Sibling {
   姓名: string;
@@ -32,22 +35,33 @@ export interface Kid {
   特殊需求: string;
   課程: string;
   狀態: string;
+  小隊ID: string;
   小隊: string;
   siblings: Sibling[];
 }
 
 /** 參加名單：報名 × 成員 × 家庭，手足依「家庭ID」判斷（只列同活動有報名的手足） */
-export async function loadRoster(sheetId: string, opts: { statuses?: string[] } = {}): Promise<Kid[]> {
+export async function loadRoster(eventId: string, opts: { statuses?: string[] } = {}): Promise<Kid[]> {
   const statuses = opts.statuses ?? [RegistrationStatus.Accepted];
-  const [regs, mm, hh, tt] = await Promise.all([
-    registrations(sheetId).all(),
+  const [regs, mm, hh, gg, gm] = await Promise.all([
+    registrations(eventId).all(),
     members().all(),
     households().all(),
-    teams(sheetId).all(),
+    groups(eventId).all(),
+    groupMembers(eventId).all(),
   ]);
   const memberById = new Map(mm.map((m) => [m.成員ID, m]));
   const householdById = new Map(hh.map((h) => [h.家庭ID, h]));
-  const teamByMember = new Map(tt.filter((t) => t.成員ID).map((t) => [t.成員ID, t.小隊]));
+  const groupById = new Map(gg.map((g) => [g.分組ID, g]));
+  const teamByMember = new Map(
+    gm.filter((m) => m.類型 === GroupType.Team && m.角色 === GroupRole.Member).map((m) => [m.成員ID, groupById.get(m.分組ID)]),
+  );
+  const coursesByReg = new Map<string, string[]>();
+  for (const m of gm) {
+    if (m.類型 !== GroupType.Course || !LEARNER_ROLES.includes(m.角色)) continue;
+    const name = groupById.get(m.分組ID)?.名稱;
+    if (name) coursesByReg.set(m.報名ID || m.成員ID, [...(coursesByReg.get(m.報名ID || m.成員ID) ?? []), name]);
+  }
 
   const kids: Kid[] = regs
     .filter((r) => statuses.includes(r.狀態))
@@ -68,9 +82,10 @@ export async function loadRoster(sheetId: string, opts: { statuses?: string[] } 
         家長: h?.主要聯絡人 ?? '',
         電話: h?.電話 ?? '',
         特殊需求: m?.特殊需求 ?? '',
-        課程: r.課程,
+        課程: (coursesByReg.get(r.報名ID) ?? coursesByReg.get(r.成員ID) ?? []).join('、'),
         狀態: r.狀態,
-        小隊: teamByMember.get(r.成員ID) ?? '',
+        小隊ID: teamByMember.get(r.成員ID)?.分組ID ?? '',
+        小隊: teamByMember.get(r.成員ID)?.名稱 ?? '',
         siblings: [],
       };
     });

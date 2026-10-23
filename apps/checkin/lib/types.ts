@@ -1,3 +1,5 @@
+import type { GroupType } from '@kids/schema';
+
 export interface BoardRow {
   報名ID: string;
   序號: string;
@@ -5,11 +7,12 @@ export interface BoardRow {
   姓名: string;
   性別: string;
   年級: string;
+  小隊ID: string;
   小隊: string;
   區域: string;
   報名狀態: string;
   報名類型: string;
-  課程: string[];
+  課程: { 分組ID: string; 名稱: string }[];
   家長: string;
   電話: string;
   特殊需求: string;
@@ -20,9 +23,19 @@ export interface BoardRow {
   已聯繫: boolean;
 }
 
+export interface GroupInfo {
+  分組ID: string;
+  類型: GroupType;
+  名稱: string;
+  區域: string;
+  說明: string;
+}
+
 export interface Board {
   eventName: string;
-  courses: string[];
+  groupTypes: GroupType[];
+  groups: GroupInfo[];
+  /** 目前的課程分組ID；空白為一般報到 */
   course: string;
   rows: BoardRow[];
   updatedAt: string;
@@ -37,7 +50,9 @@ export interface ActionResult {
 }
 
 export interface SlotInfo {
-  小隊: string;
+  分組ID: string;
+  類型: GroupType;
+  名稱: string;
   區域: string;
   current?: { 時間: string; 地點: string; 內容: string };
   next?: { 時間: string; 地點: string; 內容: string };

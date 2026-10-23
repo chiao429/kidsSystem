@@ -17,14 +17,22 @@ export function SubmitButton({ children, pendingText = '處理中…', ...props 
 export function LoginForm({
   title,
   action,
+  next,
 }: {
   title: string;
-  action: (state: { error: string }, formData: FormData) => Promise<{ error: string }>;
+  action: (state: { error: string; redirect?: string }, formData: FormData) => Promise<{ error: string; redirect?: string }>;
+  /** 登入後返回的站內路徑 */
+  next?: string;
 }) {
   const [state, formAction] = useFormState(action, { error: '' });
+  // 登入成功：由瀏覽器整頁導向（可跨系統，例如在 /checkin 登入後回到 /rollcall）
+  useEffect(() => {
+    if (state.redirect) window.location.assign(state.redirect);
+  }, [state.redirect]);
   return (
     <form action={formAction} className="mx-auto mt-16 max-w-sm space-y-4 rounded-xl border bg-white p-6 shadow-sm">
       <h1 className="text-xl font-bold">{title}</h1>
+      {next && <input type="hidden" name="next" value={next} />}
       <Field label="帳號">
         <Input name="account" autoComplete="username" required />
       </Field>

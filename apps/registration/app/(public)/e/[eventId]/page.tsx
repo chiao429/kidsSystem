@@ -1,13 +1,16 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Alert, Card, buttonClass } from '@kids/ui';
+import { availableCourses } from '@/lib/eligibility';
 import { getEvent, registrationWindow } from '@/lib/events';
+import { groups } from '@/lib/tables';
 
 export default async function EventPage({ params }: { params: { eventId: string } }) {
   const event = await getEvent(params.eventId);
   if (!event) notFound();
   const w = registrationWindow(event);
   const r = event.rules;
+  const courses = availableCourses(r, await groups(event.活動ID).all());
   const gradeText =
     r.minGrade || r.maxGrade ? `${r.minGrade ?? '不限'} ~ ${r.maxGrade ?? '不限'}` : '不限';
   return (
@@ -21,10 +24,10 @@ export default async function EventPage({ params }: { params: { eventId: string 
           </dd>
           <dt className="text-gray-500">年級</dt>
           <dd>{gradeText}</dd>
-          {r.courses && r.courses.length > 0 && (
+          {courses.length > 0 && (
             <>
               <dt className="text-gray-500">課程</dt>
-              <dd>{r.courses.map((c) => c.name).join('、')}</dd>
+              <dd>{courses.map((c) => c.名稱).join('、')}</dd>
             </>
           )}
           {event.報名截止 && (

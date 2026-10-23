@@ -1,6 +1,6 @@
 import QRCode from 'qrcode';
 import { notFound } from 'next/navigation';
-import { Card, Empty, buttonClass } from '@kids/ui';
+import { Card, Empty, buttonClass, withBase } from '@kids/ui';
 import { parseQuestions, type Answers } from '@kids/schema';
 import { SurveyForm } from '@/components/SurveyForm';
 import { getEvent } from '@/lib/events';
@@ -9,10 +9,10 @@ import { surveyResponses, surveys } from '@/lib/tables';
 
 export default async function SurveyDetailPage({ params }: { params: { eventId: string; surveyId: string } }) {
   const event = await getEvent(params.eventId);
-  const survey = await surveys(event.sheetId).findById(params.surveyId);
+  const survey = await surveys(event.活動ID).findById(params.surveyId);
   if (!survey) notFound();
   const questions = parseQuestions(survey.題目JSON);
-  const responses = (await surveyResponses(event.sheetId).all())
+  const responses = (await surveyResponses(event.活動ID).all())
     .filter((r) => r.問卷ID === survey.問卷ID)
     .map((r) => {
       try {
@@ -21,13 +21,13 @@ export default async function SurveyDetailPage({ params }: { params: { eventId: 
         return {} as Answers;
       }
     });
-  const base = process.env.NEXT_PUBLIC_REGISTRATION_URL ?? '';
+  const base = (process.env.NEXT_PUBLIC_REGISTRATION_URL ?? '').replace(/\/+$/, '');
   const url = `${base}/e/${params.eventId}/survey/${survey.問卷ID}`;
   const qr = base ? await QRCode.toDataURL(url, { margin: 1, width: 200 }) : '';
 
   return (
     <>
-      <Card title="填寫連結" actions={<a href={`/events/${params.eventId}/surveys/${survey.問卷ID}/export`} className={buttonClass('secondary', 'sm')}>匯出回覆 CSV</a>}>
+      <Card title="填寫連結" actions={<a href={withBase(`/events/${params.eventId}/surveys/${survey.問卷ID}/export`)} className={buttonClass('secondary', 'sm')}>匯出回覆 CSV</a>}>
         <div className="flex flex-wrap items-center gap-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           {qr && <img src={qr} alt="問卷 QR Code" className="h-32 w-32" />}

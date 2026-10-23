@@ -1,6 +1,6 @@
 import 'server-only';
 import { EventVersion, GRADE_OPTIONS, MemberType, gradeRank } from '@kids/schema';
-import { countCourses } from './eligibility';
+import { loadCourseState } from './eligibility';
 import type { EventInfo } from './events';
 import { registrations } from './tables';
 import type { CourseOption } from './types';
@@ -11,11 +11,12 @@ export async function formProps(event: EventInfo) {
     (g) =>
       (!r.minGrade || gradeRank(g) >= gradeRank(r.minGrade)) && (!r.maxGrade || gradeRank(g) <= gradeRank(r.maxGrade)),
   );
-  const counts = countCourses(await registrations(event.sheetId).all());
-  const courses: CourseOption[] = (r.courses ?? []).map((c) => ({
-    name: c.name,
-    full: !!c.capacity && (counts.get(c.name) ?? 0) >= c.capacity,
-  }));
+  const { courses: list, counts } = await loadCourseState(event.活動ID, r, await registrations(event.活動ID).all());
+  const courses: CourseOption[] = list.map((c) => {
+    const cap = Number(c.名額) || 0;
+    const count = counts.get(c.分組ID) ?? 0;
+    return { id: c.分組ID, name: c.名稱, full: !!cap && count >= cap, remaining: cap ? Math.max(cap - count, 0) : null };
+  });
   return {
     eventId: event.活動ID,
     grades: [...grades],

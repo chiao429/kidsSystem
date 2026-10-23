@@ -219,19 +219,19 @@ export function RegisterForm({
                     </div>
                     <div className="flex flex-wrap gap-3">
                       {courses.map((c) => (
-                        <label key={c.name} className={`flex items-center gap-1.5 ${c.full ? 'text-gray-400' : ''}`}>
+                        <label key={c.id} className={`flex items-center gap-1.5 ${c.full ? 'text-gray-400' : ''}`}>
                           <input
                             type="checkbox"
                             disabled={c.full}
-                            checked={m.courses.includes(c.name)}
+                            checked={m.courses.includes(c.id)}
                             onChange={(e) =>
                               updateMember(i, {
-                                courses: e.target.checked ? [...m.courses, c.name] : m.courses.filter((x) => x !== c.name),
+                                courses: e.target.checked ? [...m.courses, c.id] : m.courses.filter((x) => x !== c.id),
                               })
                             }
                           />
                           {c.name}
-                          {c.full && '（額滿）'}
+                          {c.full ? '（額滿）' : c.remaining != null && c.remaining <= 5 ? `（剩 ${c.remaining} 名）` : ''}
                         </label>
                       ))}
                     </div>

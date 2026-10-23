@@ -8,11 +8,10 @@ import {
   RegistrationType,
   newId,
   nowString,
-  splitList,
 } from '@kids/schema';
-import { checkInKey, loadBoard, loadSlots } from './board';
+import { checkInKey, loadBoard, loadGroups, loadSlots } from './board';
 import { getEvent } from './events';
-import { checkIns, logs, members, registrations } from './tables';
+import { checkIns, groupMembers, logs, members, registrations } from './tables';
 import type { ActionResult, Board, SlotInfo } from './types';
 
 const ROLES = ['admin', 'manager', 'staff'] as const;
@@ -31,25 +30,21 @@ export async function fetchSlots(eventId: string): Promise<SlotInfo[]> {
   return loadSlots(eventId);
 }
 
-async function log(sheetId: string, operator: string, 動作: string, 對象ID: string, 內容 = '') {
+async function log(eventId: string, operator: string, 動作: string, 對象ID: string, 內容 = '') {
   try {
-    await logs(sheetId).append([{ 日誌ID: newId('日誌ID'), 時間: nowString(), 系統: 'checkin', 操作者: operator, 動作, 對象ID, 內容 }]);
+    await logs(eventId).append([{ 日誌ID: newId('日誌ID'), 時間: nowString(), 系統: 'checkin', 操作者: operator, 動作, 對象ID, 內容 }]);
   } catch (e) {
     console.error('寫入日誌失敗', e);
   }
 }
 
-/** 依（報名ID, 課程）新增或更新一列報到紀錄 */
-async function upsert(sheetId: string, 報名ID: string, 課程: string, changes: Record<string, string>, base: Record<string, string>) {
-  const table = checkIns(sheetId);
-  const rows = await table.all({ fresh: true });
-  const row = rows.find((r) => checkInKey(r.報名ID, r.課程) === checkInKey(報名ID, 課程));
-  if (row) {
-    await table.updateByIds([{ id: row.報到ID, changes }]);
-    return row;
-  }
-  await table.append([{ 報到ID: newId('報到ID'), 報名ID, 課程, ...base, ...changes }]);
-  return null;
+/** 依（報名ID, 分組ID）新增或更新一列報到紀錄；唯一索引保證兩台裝置同時操作也只有一列 */
+async function upsert(eventId: string, 報名ID: string, 分組ID: string, changes: Record<string, string>, base: Record<string, string>) {
+  return checkIns(eventId).upsertByKey(['報名ID', '分組ID'], { 報到ID: newId('報到ID'), 報名ID, 分組ID, ...base, ...changes }, changes);
+}
+
+async function courseName(eventId: string, 分組ID: string) {
+  return (await loadGroups(eventId)).groups.find((g) => g.分組ID === 分組ID)?.名稱 ?? 分組ID;
 }
 
 export async function checkIn(
@@ -59,18 +54,21 @@ export async function checkIn(
   const s = session(eventId);
   const event = await getEvent(eventId);
   const course = input.course ?? '';
-  const reg = (await registrations(event.sheetId).all()).find((r) => r.報名ID === input.報名ID.trim());
+  const reg = (await registrations(event.活動ID).all()).find((r) => r.報名ID === input.報名ID.trim());
   if (!reg) return { error: '找不到此報名資料' };
   if (reg.狀態 === RegistrationStatus.Cancelled) return { error: `${reg.姓名} 的報名已取消` };
-  if (course && !splitList(reg.課程).includes(course)) {
-    if (!input.force) return { confirm: `${reg.姓名} 沒有報名「${course}」，仍要報到嗎？` };
+  if (course) {
+    const enrolled = (await groupMembers(event.活動ID).all()).some(
+      (m) => m.分組ID === course && (m.報名ID === reg.報名ID || m.成員ID === reg.成員ID),
+    );
+    if (!enrolled && !input.force) return { confirm: `${reg.姓名} 沒有報名「${await courseName(event.活動ID, course)}」，仍要報到嗎？` };
   }
   if (reg.狀態 !== RegistrationStatus.Accepted && !input.force) {
     return { confirm: `${reg.姓名} 的報名狀態為「${reg.狀態}」，仍要報到嗎？` };
   }
 
-  const existing = (await checkIns(event.sheetId).all({ fresh: true })).find(
-    (c) => checkInKey(c.報名ID, c.課程) === checkInKey(reg.報名ID, course),
+  const existing = (await checkIns(event.活動ID).all({ fresh: true })).find(
+    (c) => checkInKey(c.報名ID, c.分組ID) === checkInKey(reg.報名ID, course),
   );
   if (existing?.狀態 === CheckInStatus.Arrived) {
     return { ok: true, message: `${reg.姓名} 已於 ${existing.報到時間} 報到過` };
@@ -83,13 +81,13 @@ export async function checkIn(
 
   const now = nowString();
   await upsert(
-    event.sheetId,
+    event.活動ID,
     reg.報名ID,
     course,
     { 狀態: CheckInStatus.Arrived, 報到時間: now, 方式: input.method || CheckInMethod.Search, 操作者: s.name },
     { 成員ID: reg.成員ID, 姓名: reg.姓名, 晚到: '', 已聯繫: '' },
   );
-  await log(event.sheetId, s.name, course ? `課程報到：${course}` : '報到', reg.報名ID, reg.姓名);
+  await log(event.活動ID, s.name, course ? `課程報到：${await courseName(event.活動ID, course)}` : '報到', reg.報名ID, reg.姓名);
   return { ok: true, message: `${reg.姓名} 報到成功` };
 }
 
@@ -98,16 +96,16 @@ export async function setStatus(eventId: string, 報名ID: string, course: strin
   const s = session(eventId);
   if (![CheckInStatus.Cancelled, CheckInStatus.Absent, ''].includes(status as never)) return { error: '無效的狀態' };
   const event = await getEvent(eventId);
-  const reg = (await registrations(event.sheetId).all()).find((r) => r.報名ID === 報名ID);
+  const reg = (await registrations(event.活動ID).all()).find((r) => r.報名ID === 報名ID);
   if (!reg) return { error: '找不到此報名資料' };
   await upsert(
-    event.sheetId,
+    event.活動ID,
     報名ID,
     course,
     { 狀態: status, 報到時間: '', 操作者: s.name },
     { 成員ID: reg.成員ID, 姓名: reg.姓名, 方式: '', 晚到: '', 已聯繫: '' },
   );
-  await log(event.sheetId, s.name, status || '清除狀態', 報名ID, reg.姓名);
+  await log(event.活動ID, s.name, status || '清除狀態', 報名ID, reg.姓名);
   return { ok: true };
 }
 
@@ -121,15 +119,15 @@ export async function toggleFlag(
   const s = session(eventId);
   if (flag !== '晚到' && flag !== '已聯繫') return { error: '無效的欄位' };
   const event = await getEvent(eventId);
-  const reg = (await registrations(event.sheetId).all()).find((r) => r.報名ID === 報名ID);
+  const reg = (await registrations(event.活動ID).all()).find((r) => r.報名ID === 報名ID);
   if (!reg) return { error: '找不到此報名資料' };
   await upsert(
-    event.sheetId,
+    event.活動ID,
     報名ID,
     course,
     { [flag]: value ? 'Y' : '' },
     { 成員ID: reg.成員ID, 姓名: reg.姓名, 狀態: '', 報到時間: '', 方式: '', 操作者: s.name, 晚到: '', 已聯繫: '' },
   );
-  await log(event.sheetId, s.name, `${value ? '標記' : '取消'}${flag}`, 報名ID, reg.姓名);
+  await log(event.活動ID, s.name, `${value ? '標記' : '取消'}${flag}`, 報名ID, reg.姓名);
   return { ok: true };
 }

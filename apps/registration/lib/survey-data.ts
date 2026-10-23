@@ -6,7 +6,7 @@ import { surveys } from './tables';
 export async function loadSurvey(eventId: string, surveyId: string) {
   const event = await getEvent(eventId);
   if (!event) return null;
-  const survey = await surveys(event.sheetId).findById(surveyId);
+  const survey = await surveys(event.活動ID).findById(surveyId);
   if (!survey) return null;
   const now = new Date();
   const open = parseTaipei(survey.開放);

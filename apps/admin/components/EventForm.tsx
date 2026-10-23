@@ -1,4 +1,4 @@
-import { EventStatus, EventVersion, GRADE_OPTIONS, type EventRules } from '@kids/schema';
+import { EventStatus, EventVersion, GRADE_OPTIONS, GROUP_TYPES, type EventRules } from '@kids/schema';
 import { Field, Input, Select, Textarea } from '@kids/ui';
 import { ActionForm, SubmitButton, type FormResult } from '@kids/ui/client';
 import type { EventRow } from '@/lib/events';
@@ -20,7 +20,7 @@ export function EventForm({
   /** 新增時預設的活動ID */
   defaultId?: string;
 }) {
-  const courses = (rules.courses ?? []).map((c) => (c.capacity ? `${c.name}|${c.capacity}` : c.name)).join('\n');
+  const groupTypes = rules.groupTypes ?? (rules.grouping === 'course' ? ['課程'] : ['小隊']);
   return (
     <ActionForm action={action} className="grid gap-4 sm:grid-cols-2">
       <Field label="活動ID" hint="英數字，建立後不可修改；預設 kids＋今天日期" required>
@@ -82,6 +82,15 @@ export function EventForm({
         <Field label="名額" hint="0 表示不限；額滿後轉備取">
           <Input type="number" min={0} name="capacity" defaultValue={rules.capacity ?? 0} />
         </Field>
+        <Field label="啟用的分組類型" hint="可同時啟用；課程請在活動的「分組」頁建立">
+          <div className="flex gap-4 pt-2 text-sm">
+            {GROUP_TYPES.map((t) => (
+              <label key={t} className="flex items-center gap-1.5">
+                <input type="checkbox" name="groupTypes" value={t} defaultChecked={groupTypes.includes(t)} /> {t}
+              </label>
+            ))}
+          </div>
+        </Field>
         <div className="space-y-2 pt-6 text-sm">
           <label className="flex items-center gap-2">
             <input type="checkbox" name="autoAccept" defaultChecked={rules.autoAccept ?? true} /> 自動正取（否則為待審核）
@@ -89,11 +98,6 @@ export function EventForm({
           <label className="flex items-center gap-2">
             <input type="checkbox" name="existingOnly" defaultChecked={rules.existingOnly ?? false} /> 只開放已有資料的家庭報名
           </label>
-        </div>
-        <div className="sm:col-span-2">
-          <Field label="課程" hint="一行一個，可加「|名額」，例如：美勞課|30">
-            <Textarea name="courses" rows={3} defaultValue={courses} />
-          </Field>
         </div>
       </fieldset>
 

@@ -9,6 +9,8 @@ export default async function EventLayout({ children, params }: { children: Reac
   const tabs = [
     ['', '設定'],
     ['/registrations', '報名'],
+    ['/groups', '分組'],
+    ['/teams', '小隊'],
     ['/schedule', '時間表'],
     ['/surveys', '問卷'],
     ['/reports', '報表'],

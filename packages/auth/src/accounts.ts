@@ -5,15 +5,14 @@ import { verifyPassword, type Session } from './crypto';
 const SESSION_HOURS = 12;
 
 /**
- * 以「帳號」分頁驗證。
+ * 以「帳號」表驗證。
  * 帳號分頁還沒有任何 admin 時，可用 ADMIN_BOOTSTRAP_PASSWORD 以帳號 admin 登入做初始設定。
  */
 export async function authenticate(account: string, password: string): Promise<Session | null> {
-  const masterId = process.env.GOOGLE_MASTER_SHEET_ID ?? '';
   const exp = Date.now() + SESSION_HOURS * 3600_000;
   let rows: Awaited<ReturnType<SheetTable<typeof AccountTable>['all']>> = [];
   try {
-    rows = await new SheetTable(masterId, AccountTable, 60_000).all();
+    rows = await new SheetTable('master', AccountTable, 'admin', { ttlMs: 60_000 }).all();
   } catch (e) {
     // 帳號分頁尚未初始化時仍允許 bootstrap 登入
     console.warn('讀取帳號分頁失敗：', e);

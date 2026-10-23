@@ -1,5 +1,5 @@
-import { Badge, Card, Empty, Stat, Table, buttonClass } from '@kids/ui';
-import { RegistrationStatus } from '@kids/schema';
+import { Badge, Card, Empty, Stat, Table, buttonClass, withBase } from '@kids/ui';
+import { GroupType, RegistrationStatus, hasGroupType } from '@kids/schema';
 import { getEvent } from '@/lib/events';
 import { groupByGrade, loadRoster, siblingText } from '@/lib/roster';
 
@@ -12,20 +12,26 @@ export default async function RosterPage({
 }) {
   const event = await getEvent(params.eventId);
   const statuses = searchParams.all ? Object.values(RegistrationStatus).filter((s) => s !== '取消') : undefined;
-  const kids = await loadRoster(event.sheetId, { statuses });
+  const kids = await loadRoster(event.活動ID, { statuses });
   const groups = groupByGrade(kids);
+  const teamsOn = hasGroupType(event.rules, GroupType.Team);
   const shown = searchParams.group ? groups.filter((g) => g.group === searchParams.group) : groups;
-  const base = `/e/${params.eventId}`;
+  const base = withBase(`/e/${params.eventId}`);
   const q = (extra: Record<string, string>) =>
     '?' + new URLSearchParams({ ...(searchParams.all ? { all: '1' } : {}), ...extra }).toString();
 
   return (
     <>
+      {!teamsOn && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+          此活動未啟用小隊，不需要分隊；課程請到後台「分組」管理。
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="人數" value={kids.length} tone="blue" sub={searchParams.all ? '正取＋備取＋待審核' : '正取'} />
         <Stat label="男 / 女" value={`${kids.filter((k) => k.性別 === '男').length} / ${kids.filter((k) => k.性別 === '女').length}`} />
         <Stat label="有手足同行" value={kids.filter((k) => k.siblings.length > 0).length} tone="purple" />
-        <Stat label="已分隊" value={kids.filter((k) => k.小隊).length} tone="green" />
+        <Stat label={teamsOn ? '已分隊' : '已選課'} value={teamsOn ? kids.filter((k) => k.小隊).length : kids.filter((k) => k.課程).length} tone="green" />
       </div>
 
       <Card
@@ -33,13 +39,13 @@ export default async function RosterPage({
         actions={
           <>
             <a href={`${base}/export/grades${q({})}`} className={buttonClass('primary', 'sm')}>總表＋年級分頁</a>
-            <a href={`${base}/export/teams`} className={buttonClass('secondary', 'sm')}>小隊名單</a>
+            {teamsOn && <a href={`${base}/export/teams`} className={buttonClass('secondary', 'sm')}>小隊名單</a>}
             <a href={`${base}/export/notify`} className={buttonClass('secondary', 'sm')}>行前通知總表</a>
           </>
         }
       >
         <p className="text-sm text-gray-600">
-          總表依序號排序、手足展開成多列；年級分頁中學齡前（未就學～大班）合併。小隊名單每隊一個分頁。
+          總表依序號排序、手足展開成多列；年級分頁中學齡前（未就學～大班）合併。{teamsOn ? '小隊名單每隊一個分頁。' : '此活動未啟用小隊。'}
         </p>
       </Card>
 

@@ -120,6 +120,12 @@ export interface NavItem {
   label: string;
 }
 
+/** 本系統的 basePath（統一入口下各系統的路徑前綴；由各 app 的 next.config.js 設定） */
+export const basePath = () => process.env.NEXT_PUBLIC_BASE_PATH ?? '';
+
+/** 原生 <a>、fetch、window.location 不會自動加 basePath，用這個補上；<Link>／redirect 不需要 */
+export const withBase = (path: string) => `${basePath()}${path}`;
+
 /** 系統共用外框；brand 為該系統主色（CSS 色碼） */
 export function Shell({
   title,
@@ -127,11 +133,14 @@ export function Shell({
   nav = [],
   user,
   logoutAction,
+  staffHome = '/staff',
   children,
 }: {
   title: string;
   brand: string;
   nav?: NavItem[];
+  /** 跨系統的同工入口（站內絕對路徑）；傳 null 不顯示 */
+  staffHome?: string | null;
   user?: string;
   logoutAction?: () => Promise<void>;
   children: ReactNode;
@@ -140,15 +149,20 @@ export function Shell({
     <div style={{ ['--brand' as string]: brand }} className="min-h-screen">
       <header className="sticky top-0 z-10 border-b border-gray-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
-          <a href="/" className="text-lg font-bold" style={{ color: brand }}>
+          <a href={withBase('/')} className="text-lg font-bold" style={{ color: brand }}>
             {title}
           </a>
           <nav className="flex flex-wrap gap-1 text-sm">
             {nav.map((n) => (
-              <a key={n.href} href={n.href} className="rounded-md px-2 py-1 text-gray-700 hover:bg-gray-100">
+              <a key={n.href} href={withBase(n.href)} className="rounded-md px-2 py-1 text-gray-700 hover:bg-gray-100">
                 {n.label}
               </a>
             ))}
+            {staffHome && (
+              <a href={staffHome} className="rounded-md px-2 py-1 text-gray-500 hover:bg-gray-100">
+                同工入口
+              </a>
+            )}
           </nav>
           {user && (
             <form action={logoutAction} className="ml-auto flex items-center gap-2 text-sm text-gray-600">
@@ -178,6 +192,37 @@ export function Table({ head, children }: { head: ReactNode[]; children: ReactNo
         </thead>
         <tbody className="divide-y divide-gray-100">{children}</tbody>
       </table>
+    </div>
+  );
+}
+
+/** 帳號沒有權限時的說明（各系統的 /forbidden 頁使用） */
+export function ForbiddenNotice({
+  name,
+  role,
+  reason,
+  logoutAction,
+}: {
+  name?: string;
+  role?: string;
+  reason?: string;
+  logoutAction: () => Promise<void>;
+}) {
+  return (
+    <div className="mx-auto mt-16 max-w-md space-y-4 rounded-xl border bg-white p-6 shadow-sm">
+      <h1 className="text-xl font-bold">沒有權限</h1>
+      <p className="text-sm text-gray-700">
+        {name ? `目前登入的帳號（${name}${role ? `，${role}` : ''}）` : '目前的帳號'}
+        {reason === 'event' ? '沒有此活動的權限。' : '沒有使用本系統的權限。'}
+      </p>
+      <div className="flex gap-2">
+        <a href="/staff" className={buttonClass('secondary')}>
+          回同工入口
+        </a>
+        <form action={logoutAction}>
+          <Button>登出並換帳號</Button>
+        </form>
+      </div>
     </div>
   );
 }

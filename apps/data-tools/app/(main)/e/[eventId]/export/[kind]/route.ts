@@ -1,9 +1,9 @@
 import { requireSession } from '@kids/auth/next';
-import { RegistrationStatus } from '@kids/schema';
+import { GroupRole, GroupType, RegistrationStatus, groupsOfType } from '@kids/schema';
 import { getEvent } from '@/lib/events';
 import { workbookResponse } from '@/lib/excel';
 import { groupByGrade, loadRoster, siblingText, type Kid } from '@/lib/roster';
-import { teams } from '@/lib/tables';
+import { groupMembers, groups } from '@/lib/tables';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,7 +14,7 @@ export async function GET(req: Request, { params }: { params: { eventId: string;
   const event = await getEvent(params.eventId);
   const all = new URL(req.url).searchParams.get('all');
   const statuses = all ? Object.values(RegistrationStatus).filter((s) => s !== '取消') : undefined;
-  const kids = await loadRoster(event.sheetId, { statuses });
+  const kids = await loadRoster(event.活動ID, { statuses });
 
   if (params.kind === 'grades') {
     // 總表：依序號排序，手足展開成多列
@@ -51,12 +51,16 @@ export async function GET(req: Request, { params }: { params: { eventId: string;
     );
   }
 
-  const teamRows = await teams(event.sheetId).all();
-  const teamNames = Array.from(new Set(teamRows.map((r) => r.小隊))).sort((a, b) => a.localeCompare(b, 'zh-Hant', { numeric: true }));
+  const [gg, gm] = await Promise.all([groups(event.活動ID).all(), groupMembers(event.活動ID).all()]);
+  const teamGroups = groupsOfType(gg, GroupType.Team);
+  const teamNames = teamGroups.map((g) => g.名稱);
+  const groupByName = new Map(teamGroups.map((g) => [g.名稱, g]));
+  const teamRows = gm.filter((r) => r.類型 === GroupType.Team);
+  const rowsOf = (team: string) => teamRows.filter((r) => r.分組ID === groupByName.get(team)?.分組ID);
   const kidById = new Map(kids.map((k) => [k.成員ID, k]));
   const membersOf = (team: string): Kid[] =>
-    teamRows
-      .filter((r) => r.小隊 === team && r.角色 === '隊員')
+    rowsOf(team)
+      .filter((r) => r.角色 === GroupRole.Member)
       .map((r) => kidById.get(r.成員ID))
       .filter((k): k is Kid => !!k)
       .sort((a, b) => (Number(a.序號) || 0) - (Number(b.序號) || 0));
@@ -65,11 +69,11 @@ export async function GET(req: Request, { params }: { params: { eventId: string;
     const overview = [
       ['小隊', '區域', '小隊長', '副小隊長', '人數', '男', '女'],
       ...teamNames.map((t) => {
-        const leaders = teamRows.filter((r) => r.小隊 === t);
+        const leaders = rowsOf(t);
         const ms = membersOf(t);
         return [
           t,
-          leaders[0]?.區域 ?? '',
+          groupByName.get(t)?.區域 ?? '',
           leaders.filter((r) => r.角色 === '小隊長').map((r) => r.姓名).join('、'),
           leaders.filter((r) => r.角色 === '副小隊長').map((r) => r.姓名).join('、'),
           ms.length,

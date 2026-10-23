@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { requireSession } from '@kids/auth/next';
-import type { EventRules } from '@kids/schema';
+import { GROUP_TYPES, type EventRules, type GroupType } from '@kids/schema';
 import type { FormResult } from '@kids/ui/client';
 import { extractSheetIdFromUrl } from '@kids/sheets-core';
 import { ensureEventTables, events } from './tables';
@@ -12,19 +12,12 @@ import { writeLog } from './log';
 
 function readEventForm(formData: FormData) {
   const s = (k: string) => String(formData.get(k) ?? '').trim();
-  const courses = s('courses')
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [name, cap] = line.split('|').map((x) => x.trim());
-      return cap ? { name, capacity: Number(cap) || 0 } : { name };
-    });
+  const groupTypes = formData.getAll('groupTypes').map(String).filter((t): t is GroupType => (GROUP_TYPES as string[]).includes(t));
   const rules: EventRules = {
+    groupTypes,
     minGrade: s('minGrade') || undefined,
     maxGrade: s('maxGrade') || undefined,
     capacity: Number(s('capacity')) || 0,
-    courses,
     autoAccept: formData.get('autoAccept') === 'on',
     existingOnly: formData.get('existingOnly') === 'on',
   };
@@ -52,12 +45,12 @@ export async function createEvent(_: FormResult, formData: FormData): Promise<Fo
   const sheetId = extractSheetIdFromUrl(row.活動試算表);
   try {
     // 先初始化活動試算表，確認 service account 有權限再寫入活動
-    await ensureEventTables(sheetId);
+    await ensureEventTables(row.活動ID, sheetId);
   } catch (e) {
     return { error: `無法存取活動試算表，請確認已共用給 service account：${e instanceof Error ? e.message : e}` };
   }
   await events().append([row]);
-  await writeLog(sheetId, session, '建立活動', row.活動ID);
+  await writeLog(row.活動ID, session, '建立活動', row.活動ID);
   redirect(`/events/${row.活動ID}`);
 }
 
@@ -67,7 +60,7 @@ export async function updateEvent(eventId: string, _: FormResult, formData: Form
   if (!changes.名稱 || !changes.活動試算表) return { error: '請填寫名稱與活動試算表連結' };
   await events().updateByIds([{ id: eventId, changes }]);
   const event = await getEvent(eventId);
-  await writeLog(event.sheetId, session, '更新活動', eventId);
+  await writeLog(event.活動ID, session, '更新活動', eventId);
   revalidatePath(`/events/${eventId}`);
   return { message: '已儲存' };
 }
@@ -75,7 +68,7 @@ export async function updateEvent(eventId: string, _: FormResult, formData: Form
 export async function initEventSheet(eventId: string) {
   const session = requireSession({ roles: ['admin', 'manager'], eventId });
   const event = await getEvent(eventId);
-  await ensureEventTables(event.sheetId);
-  await writeLog(event.sheetId, session, '初始化活動試算表', eventId);
+  await ensureEventTables(event.活動ID, event.sheetId);
+  await writeLog(event.活動ID, session, '初始化活動試算表', eventId);
   revalidatePath(`/events/${eventId}`);
 }

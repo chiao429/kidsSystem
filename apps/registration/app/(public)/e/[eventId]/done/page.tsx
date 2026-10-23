@@ -1,9 +1,9 @@
 import QRCode from 'qrcode';
 import { notFound } from 'next/navigation';
 import { Badge, Card } from '@kids/ui';
-import { RegistrationSource } from '@kids/schema';
+import { GroupType, LEARNER_ROLES, RegistrationSource } from '@kids/schema';
 import { getEvent } from '@/lib/events';
-import { registrations } from '@/lib/tables';
+import { groupMembers, groups, registrations } from '@/lib/tables';
 
 const tone = { 正取: 'green', 備取: 'amber', 待審核: 'blue', 取消: 'gray' } as const;
 
@@ -17,10 +17,17 @@ export default async function DonePage({
   const event = await getEvent(params.eventId);
   if (!event) notFound();
   const ids = (searchParams.ids ?? '').split(',').filter(Boolean).slice(0, 20);
-  const all = await registrations(event.sheetId).all({ fresh: true });
+  const all = await registrations(event.活動ID).all({ fresh: true });
   const rows = ids.map((id) => all.find((r) => r.報名ID === id)).filter((r) => !!r);
+  const [gg, gm] = await Promise.all([groups(event.活動ID).all(), groupMembers(event.活動ID).all({ fresh: true })]);
+  const courseNames = (報名ID: string) =>
+    gm
+      .filter((m) => m.報名ID === 報名ID && m.類型 === GroupType.Course && LEARNER_ROLES.includes(m.角色))
+      .map((m) => gg.find((g) => g.分組ID === m.分組ID)?.名稱 ?? '')
+      .filter(Boolean)
+      .join('、');
   const qrs = await Promise.all(rows.map((r) => QRCode.toDataURL(r.報名ID, { margin: 1, width: 240 })));
-  const checkinUrl = process.env.NEXT_PUBLIC_CHECKIN_URL;
+  const checkinUrl = process.env.NEXT_PUBLIC_CHECKIN_URL?.replace(/\/+$/, '');
 
   return (
     <>
@@ -41,7 +48,7 @@ export default async function DonePage({
                 {event.名稱}｜序號 {r.序號}
               </div>
               <div className="text-gray-600">{r.年級}</div>
-              {r.課程 && <div className="text-gray-600">課程：{r.課程}</div>}
+              {courseNames(r.報名ID) && <div className="text-gray-600">課程：{courseNames(r.報名ID)}</div>}
               <Badge tone={tone[r.狀態 as keyof typeof tone] ?? 'gray'}>{r.狀態}</Badge>
               <div className="font-mono text-xs text-gray-400">{r.報名ID}</div>
             </div>

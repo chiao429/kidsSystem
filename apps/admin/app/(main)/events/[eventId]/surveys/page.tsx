@@ -7,7 +7,7 @@ import { surveyResponses, surveys } from '@/lib/tables';
 
 export default async function SurveysPage({ params }: { params: { eventId: string } }) {
   const event = await getEvent(params.eventId);
-  const [list, responses] = await Promise.all([surveys(event.sheetId).all(), surveyResponses(event.sheetId).all()]);
+  const [list, responses] = await Promise.all([surveys(event.活動ID).all(), surveyResponses(event.活動ID).all()]);
   return (
     <>
       <Card title="問卷">

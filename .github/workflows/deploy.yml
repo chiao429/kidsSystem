@@ -1,0 +1,139 @@
+# 自動部署到 Cloud Run
+# - push 到 main → staging（只部署有變動的 app；packages/、Dockerfile、lock 檔變動則全部部署）
+# - 推送 v* tag → production（全部部署；可在 GitHub Environment 設定需人工核准）
+# 設定步驟見 docs/gcp-setup.md
+name: deploy
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 部署環境
+        type: choice
+        options: [staging, production]
+        default: staging
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run check:boundaries
+      - run: npm run typecheck
+
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.env.outputs.environment }}
+      apps: ${{ steps.apps.outputs.apps }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: env
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then echo "environment=${{ inputs.environment }}" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then echo "environment=production" >> "$GITHUB_OUTPUT"
+          else echo "environment=staging" >> "$GITHUB_OUTPUT"; fi
+      - id: apps
+        run: |
+          ALL='["admin","checkin","data-tools","registration","rollcall"]'
+          BEFORE="${{ github.event.before }}"
+          if [ "${{ github.event_name }}" != "push" ] || [[ "${{ github.ref }}" == refs/tags/* ]] || [ -z "$BEFORE" ] || ! git cat-file -e "$BEFORE" 2>/dev/null; then
+            echo "apps=$ALL" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          CHANGED=$(git diff --name-only "$BEFORE" "${{ github.sha }}")
+          if echo "$CHANGED" | grep -qE '^(packages/|Dockerfile|\.dockerignore|package(-lock)?\.json|tsconfig\.base\.json|\.github/workflows/)'; then
+            echo "apps=$ALL" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          APPS=$(echo "$CHANGED" | sed -nE 's#^apps/([^/]+)/.*#\1#p' | sort -u | jq -R . | jq -cs .)
+          echo "apps=$APPS" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: [check, plan]
+    if: needs.plan.outputs.apps != '[]'
+    runs-on: ubuntu-latest
+    environment: ${{ needs.plan.outputs.environment }}
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJson(needs.plan.outputs.apps) }}
+    env:
+      ENV_NAME: ${{ needs.plan.outputs.environment == 'production' && 'prod' || 'stg' }}
+      REGION: ${{ vars.GCP_REGION || 'asia-east1' }}
+      PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      PROJECT_NUMBER: ${{ vars.GCP_PROJECT_NUMBER }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.DEPLOY_SA }}
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: 計算各服務網址
+        id: urls
+        run: |
+          # Cloud Run 的網址固定為 https://<服務>-<專案編號>.<區域>.run.app
+          url() { echo "https://kids-${ENV_NAME}-$1-${PROJECT_NUMBER}.${REGION}.run.app"; }
+          ENTRY=$(url registration)
+          {
+            echo "service=kids-${ENV_NAME}-${{ matrix.app }}"
+            echo "entry=$ENTRY"
+            echo "host=${ENTRY#https://}"
+            echo "admin=$(url admin)"
+            echo "checkin=$(url checkin)"
+            echo "rollcall=$(url rollcall)"
+            echo "datatools=$(url data-tools)"
+            echo "image=${REGION}-docker.pkg.dev/${PROJECT_ID}/kids/${{ matrix.app }}:${{ github.sha }}-${ENV_NAME}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build & push
+        run: |
+          gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+          docker build \
+            --build-arg APP=${{ matrix.app }} \
+            --build-arg NEXT_PUBLIC_SITE_URL=${{ steps.urls.outputs.entry }} \
+            --build-arg NEXT_PUBLIC_REGISTRATION_URL=${{ steps.urls.outputs.entry }} \
+            --build-arg NEXT_PUBLIC_CHECKIN_URL=${{ steps.urls.outputs.entry }}/checkin \
+            --build-arg SITE_HOST=${{ steps.urls.outputs.host }} \
+            --build-arg ADMIN_ORIGIN=${{ steps.urls.outputs.admin }} \
+            --build-arg CHECKIN_ORIGIN=${{ steps.urls.outputs.checkin }} \
+            --build-arg ROLLCALL_ORIGIN=${{ steps.urls.outputs.rollcall }} \
+            --build-arg DATA_TOOLS_ORIGIN=${{ steps.urls.outputs.datatools }} \
+            -t ${{ steps.urls.outputs.image }} .
+          docker push ${{ steps.urls.outputs.image }}
+
+      - name: Deploy to Cloud Run
+        run: |
+          S="kids-${ENV_NAME}"
+          SECRETS="AUTH_SECRET=${S}-auth-secret:latest,MONGODB_URI=${S}-mongodb-uri:latest,GOOGLE_PRIVATE_KEY=${S}-google-private-key:latest"
+          if [ "${{ matrix.app }}" = "admin" ]; then SECRETS="$SECRETS,SYNC_TOKEN=${S}-sync-token:latest"; fi
+          gcloud run deploy ${{ steps.urls.outputs.service }} \
+            --image ${{ steps.urls.outputs.image }} \
+            --region "$REGION" \
+            --service-account "${{ vars.RUNTIME_SA }}" \
+            --allow-unauthenticated \
+            --port 8080 \
+            --memory 512Mi \
+            --min-instances 0 \
+            --max-instances 5 \
+            --set-env-vars "DATA_BACKEND=${{ vars.DATA_BACKEND || 'mongo' }},MONGODB_DB=${{ vars.MONGODB_DB }},GOOGLE_MASTER_SHEET_ID=${{ vars.GOOGLE_MASTER_SHEET_ID }},GOOGLE_SERVICE_ACCOUNT_EMAIL=${{ vars.GOOGLE_SERVICE_ACCOUNT_EMAIL }},SITE_HOST=${{ steps.urls.outputs.host }}" \
+            --set-secrets "$SECRETS" \
+            --quiet

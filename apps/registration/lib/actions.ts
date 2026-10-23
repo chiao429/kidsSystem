@@ -1,6 +1,8 @@
 'use server';
 
 import {
+  GroupRole,
+  GroupType,
   MemberType,
   RegistrationSource,
   RegistrationType,
@@ -9,9 +11,9 @@ import {
   normalizePhone,
   nowString,
 } from '@kids/schema';
-import { checkMember, countCourses, initialStatus, isActive, nextSerial } from './eligibility';
+import { checkMember, initialStatus, isActive, loadCourseState, nextSerial } from './eligibility';
 import { getEvent, registrationWindow } from './events';
-import { households, members, registrations } from './tables';
+import { groupMembers, households, members, registrations } from './tables';
 import type { LookupResult, MemberInput, RegisterPayload, RegisterResult } from './types';
 
 const clean = (v: unknown) => String(v ?? '').trim().slice(0, 200);
@@ -30,7 +32,7 @@ export async function lookupHousehold(eventId: string, phone: string, name: stri
   const household = await findHousehold(phone, name);
   if (!household) return { error: '查無資料，請確認電話與聯絡人姓名，或改用「第一次報名」' };
 
-  const [allMembers, regs] = await Promise.all([members().all(), registrations(event.sheetId).all()]);
+  const [allMembers, regs] = await Promise.all([members().all(), registrations(event.活動ID).all()]);
   const registered = new Set(regs.filter(isActive).map((r) => r.成員ID));
   return {
     household: {
@@ -120,11 +122,12 @@ export async function submitRegistration(payload: RegisterPayload): Promise<Regi
   }
 
   // ── 資格檢查（全部通過才寫入） ──
-  const regs = await registrations(event.sheetId).all({ fresh: true });
-  const courseCounts = countCourses(regs);
+  const regs = await registrations(event.活動ID).all({ fresh: true });
+  const { courses, counts: courseCounts } = await loadCourseState(event.活動ID, rules, regs, true);
   const errors: string[] = [];
   for (const m of selected) {
-    const err = checkMember(m, rules, regs, courseCounts);
+    m.courses = Array.from(new Set(m.courses));
+    const err = checkMember(m, rules, regs, courses, courseCounts);
     if (err) errors.push(err);
     for (const c of m.courses) courseCounts.set(c, (courseCounts.get(c) ?? 0) + 1);
   }
@@ -181,12 +184,27 @@ export async function submitRegistration(payload: RegisterPayload): Promise<Regi
     姓名: m.姓名,
     年級: m.年級,
     報名類型: type,
-    課程: m.courses.join(','),
     狀態: initialStatus(rules, active++),
     來源: onSite ? RegistrationSource.OnSite : RegistrationSource.Online,
     報名時間: now,
     備註: '',
   }));
-  await registrations(event.sheetId).append(rows);
+  await registrations(event.活動ID).append(rows);
+  // 選課寫入分組成員（每人每門課一列）
+  await groupMembers(event.活動ID).append(
+    selected.flatMap((m, i) =>
+      m.courses.map((分組ID) => ({
+        分組成員ID: newId('分組成員ID'),
+        分組ID,
+        類型: GroupType.Course,
+        成員ID: m.成員ID!,
+        姓名: m.姓名,
+        報名ID: rows[i].報名ID,
+        角色: GroupRole.Student,
+        來源: '報名',
+        建立時間: now,
+      })),
+    ),
+  );
   return { ids: rows.map((r) => r.報名ID) };
 }

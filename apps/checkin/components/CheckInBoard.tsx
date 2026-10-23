@@ -112,7 +112,7 @@ export function CheckInBoard({ eventId, initial, registrationUrl }: { eventId: s
             已到 <span className="text-2xl text-emerald-700 tabular-nums">{arrived}</span>
             <span className="text-gray-500"> / {board.rows.length}</span>
           </div>
-          {board.courses.length > 0 && (
+          {board.groups.some((g) => g.類型 === '課程') && (
             <Select
               value={course}
               className="max-w-[12rem]"
@@ -122,11 +122,13 @@ export function CheckInBoard({ eventId, initial, registrationUrl }: { eventId: s
               }}
             >
               <option value="">一般報到</option>
-              {board.courses.map((c) => (
-                <option key={c} value={c}>
-                  課程：{c}
-                </option>
-              ))}
+              {board.groups
+                .filter((g) => g.類型 === '課程')
+                .map((c) => (
+                  <option key={c.分組ID} value={c.分組ID}>
+                    課程：{c.名稱}
+                  </option>
+                ))}
             </Select>
           )}
           <div className="ml-auto flex gap-2">
@@ -210,7 +212,7 @@ export function CheckInBoard({ eventId, initial, registrationUrl }: { eventId: s
                 {r.年級}
                 {r.小隊 && `・${r.小隊}`}
                 {r.家長 && `・${r.家長} ${r.電話}`}
-                {r.課程.length > 0 && `・${r.課程.join('、')}`}
+                {r.課程.length > 0 && `・${r.課程.map((c) => c.名稱).join('、')}`}
               </div>
               {r.特殊需求 && <div className="text-sm text-red-700">⚠ {r.特殊需求}</div>}
             </div>

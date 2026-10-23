@@ -28,15 +28,15 @@ export async function saveSurvey(eventId: string, surveyId: string | null, _: Fo
   if (bad) return { error: `「${bad.title}」至少需要兩個選項` };
   if (!(Object.values(SurveyStatus) as string[]).includes(row.狀態)) row.狀態 = SurveyStatus.Draft;
 
-  const table = surveys(event.sheetId);
+  const table = surveys(event.活動ID);
   if (surveyId) {
     await table.updateByIds([{ id: surveyId, changes: row }]);
-    await writeLog(event.sheetId, session, '更新問卷', surveyId, row.標題);
+    await writeLog(event.活動ID, session, '更新問卷', surveyId, row.標題);
     revalidatePath(`/events/${eventId}/surveys/${surveyId}`);
     return { message: '已儲存' };
   }
   const id = newId('問卷ID');
   await table.append([{ 問卷ID: id, ...row }]);
-  await writeLog(event.sheetId, session, '建立問卷', id, row.標題);
+  await writeLog(event.活動ID, session, '建立問卷', id, row.標題);
   redirect(`/events/${eventId}/surveys/${id}`);
 }

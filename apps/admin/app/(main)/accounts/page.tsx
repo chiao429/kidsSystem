@@ -1,5 +1,5 @@
 import { revalidatePath } from 'next/cache';
-import { Badge, Card, Field, Input, Select, Table, Button } from '@kids/ui';
+import { Badge, Card, Field, Input, Select, Table, Button, withBase } from '@kids/ui';
 import { ActionForm, SubmitButton, type FormResult } from '@kids/ui/client';
 import { hashPassword } from '@kids/auth';
 import { requireSession } from '@kids/auth/next';
@@ -72,7 +72,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: { e
           <Field label="可管理活動" hint="活動ID，以逗號分隔；* 表示全部">
             <Input name="events" defaultValue={editing?.可管理活動} />
           </Field>
-          <Field label="負責小隊" hint="點名系統使用，可留白">
+          <Field label="負責小隊（舊欄位）" hint="建議改到活動的「分組」頁指派負責人；此欄以名稱比對，可留白">
             <Input name="team" defaultValue={editing?.小隊} />
           </Field>
           <label className="flex items-center gap-2 text-sm">
@@ -81,7 +81,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: { e
           <div className="flex gap-2 sm:col-span-3">
             <SubmitButton>儲存</SubmitButton>
             {editing && (
-              <a href="/accounts" className="px-3 py-2 text-sm text-gray-600">
+              <a href={withBase('/accounts')} className="px-3 py-2 text-sm text-gray-600">
                 取消
               </a>
             )}
@@ -99,7 +99,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: { e
               <td className="px-2 py-2">{r.小隊}</td>
               <td className="px-2 py-2">{r.啟用 === 'N' ? <Badge tone="red">停用</Badge> : <Badge tone="green">啟用</Badge>}</td>
               <td className="space-x-1 whitespace-nowrap px-2 py-2 text-right">
-                <a href={`/accounts?edit=${encodeURIComponent(r.帳號)}`} className="text-purple-700 hover:underline">
+                <a href={withBase(`/accounts?edit=${encodeURIComponent(r.帳號)}`)} className="text-purple-700 hover:underline">
                   編輯
                 </a>
                 <form action={deleteAccount.bind(null, r.帳號)} className="inline">

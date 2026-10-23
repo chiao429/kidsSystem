@@ -9,10 +9,10 @@ export const dynamic = 'force-dynamic';
 export async function GET(_req: Request, { params }: { params: { eventId: string; surveyId: string } }) {
   requireSession({ roles: ['admin', 'manager'], eventId: params.eventId });
   const event = await getEvent(params.eventId);
-  const survey = await surveys(event.sheetId).findById(params.surveyId);
+  const survey = await surveys(event.活動ID).findById(params.surveyId);
   if (!survey) return new Response('Not found', { status: 404 });
   const questions = parseQuestions(survey.題目JSON);
-  const rows = (await surveyResponses(event.sheetId).all())
+  const rows = (await surveyResponses(event.活動ID).all())
     .filter((r) => r.問卷ID === survey.問卷ID)
     .map((r) => {
       let a: Answers = {};

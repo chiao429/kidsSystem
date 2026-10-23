@@ -1,16 +1,17 @@
 import Link from 'next/link';
 import { Card, Empty, buttonClass } from '@kids/ui';
 import { requireSession } from '@kids/auth/next';
-import { getEvent, loadTeams } from '@/lib/data';
+import { getEvent, loadGroups, type GroupRef } from '@/lib/data';
 
 export default async function TeamsPage({ params }: { params: { eventId: string } }) {
   const session = requireSession({ roles: ['admin', 'manager', 'staff'], eventId: params.eventId });
   const event = await getEvent(params.eventId);
-  const { mine, allowed } = await loadTeams(event.sheetId, session);
-  const others = allowed.filter((t) => !mine.includes(t));
-  const link = (t: string, primary: boolean) => (
-    <Link key={t} href={`/e/${params.eventId}/t/${encodeURIComponent(t)}`} className={buttonClass(primary ? 'primary' : 'secondary', 'lg')}>
-      {t}
+  const { mine, allowed } = await loadGroups(event.活動ID, session, event.rules);
+  const others = allowed.filter((g) => !mine.some((m) => m.分組ID === g.分組ID));
+  const types = Array.from(new Set(allowed.map((g) => g.類型)));
+  const link = (g: GroupRef, primary: boolean) => (
+    <Link key={g.分組ID} href={`/e/${params.eventId}/t/${encodeURIComponent(g.分組ID)}`} className={buttonClass(primary ? 'primary' : 'secondary', 'lg')}>
+      {g.名稱}
     </Link>
   );
   return (
@@ -21,19 +22,27 @@ export default async function TeamsPage({ params }: { params: { eventId: string 
           出席統計
         </Link>
       </div>
-      {mine.length > 0 && (
-        <Card title="我的小隊">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{mine.map((t) => link(t, true))}</div>
-        </Card>
-      )}
-      {others.length > 0 && (
-        <Card title="其他小隊">
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">{others.map((t) => link(t, false))}</div>
-        </Card>
-      )}
+      {types.map((type) => {
+        const myList = mine.filter((g) => g.類型 === type);
+        const otherList = others.filter((g) => g.類型 === type);
+        return (
+          <div key={type} className="space-y-4">
+            {myList.length > 0 && (
+              <Card title={`我的${type}`}>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{myList.map((g) => link(g, true))}</div>
+              </Card>
+            )}
+            {otherList.length > 0 && (
+              <Card title={`其他${type}`}>
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">{otherList.map((g) => link(g, false))}</div>
+              </Card>
+            )}
+          </div>
+        );
+      })}
       {allowed.length === 0 && (
         <Card>
-          <Empty>沒有可點名的小隊。請管理員在帳號設定「負責小隊」，或在資料整理系統把你設為小隊長。</Empty>
+        <Empty>沒有可點名的分組。請管理員在後台「分組」指派你為老師，或在資料整理系統把你設為小隊長。</Empty>
         </Card>
       )}
     </>

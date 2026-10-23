@@ -8,6 +8,7 @@ export interface MemberInput {
   學校: string;
   類型: string;
   特殊需求: string;
+  /** 選擇的課程分組ID */
   courses: string[];
   selected: boolean;
 }
@@ -42,6 +43,10 @@ export interface LookupResult {
 }
 
 export interface CourseOption {
+  /** 課程分組ID */
+  id: string;
   name: string;
   full: boolean;
+  /** 剩餘名額；不限名額為 null */
+  remaining: number | null;
 }

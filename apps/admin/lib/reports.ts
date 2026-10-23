@@ -1,6 +1,9 @@
 import 'server-only';
-import { CheckInStatus, RegistrationStatus, gradeGroup, GRADE_GROUP_ORDER } from '@kids/schema';
-import { attendance, checkIns, households, logs, members, registrations, schedules, teams } from './tables';
+import { CheckInStatus, LEARNER_ROLES, RegistrationStatus, gradeGroup, GRADE_GROUP_ORDER } from '@kids/schema';
+import { loadGroupState } from './groups';
+import { attendance, checkIns, households, logs, members, registrations, schedules } from './tables';
+
+const PRESENT = ['出席', '遲到'];
 
 /** 可匯出的資料集與欄位 */
 export const DATASETS = {
@@ -8,26 +11,33 @@ export const DATASETS = {
     label: '報名名單（含家庭、小隊、報到）',
     columns: ['序號', '姓名', '性別', '年級', '學校', '生日', '家長', '電話', 'Email', '地址', '特殊需求', '課程', '報名狀態', '報名類型', '來源', '報名時間', '小隊', '報到狀態', '報到時間', '晚到', '已聯繫'],
   },
-  checkins: { label: '報到紀錄', columns: ['姓名', '課程', '狀態', '報到時間', '方式', '操作者', '晚到', '已聯繫'] },
-  attendance: { label: '點名紀錄', columns: ['日期', '時段', '內容', '小隊', '姓名', '狀態', '備註', '操作者', '時間'] },
+  groupMembers: {
+    label: '分組成員明細（每人每組一列，適合樞紐分析）',
+    columns: ['活動', '分組類型', '分組名稱', '代碼', '姓名', '性別', '年級', '學校', '角色', '報名狀態', '一般報到', '該組報到', '出席次數', '應出席時段數', '出席率'],
+  },
+  groupStats: { label: '分組統計', columns: ['分組類型', '分組名稱', '代碼', '名額', '報名數', '報到數', '點名人次', '出席人次', '平均出席率'] },
+  checkins: { label: '報到紀錄', columns: ['姓名', '報到對象', '狀態', '報到時間', '方式', '操作者', '晚到', '已聯繫'] },
+  attendance: { label: '點名紀錄', columns: ['日期', '時段', '內容', '分組類型', '分組', '姓名', '狀態', '備註', '操作者', '時間'] },
   logs: { label: '操作日誌', columns: ['時間', '系統', '操作者', '動作', '對象ID', '內容'] },
 } as const;
 
 export type DatasetKey = keyof typeof DATASETS;
 
-export async function buildDataset(sheetId: string, key: DatasetKey): Promise<Record<string, string>[]> {
+const pct = (n: number, d: number) => (d ? `${Math.round((n / d) * 100)}%` : '');
+
+export async function buildDataset(eventId: string, key: DatasetKey, eventName = ''): Promise<Record<string, string>[]> {
+  const state = await loadGroupState(eventId);
+  const groupLabel = (id: string) => state.byId.get(id)?.名稱 ?? '';
   if (key === 'roster') {
-    const [regs, mm, hh, tt, cc] = await Promise.all([
-      registrations(sheetId).all(),
+    const [regs, mm, hh, cc] = await Promise.all([
+      registrations(eventId).all(),
       members().all(),
       households().all(),
-      teams(sheetId).all(),
-      checkIns(sheetId).all(),
+      checkIns(eventId).all(),
     ]);
     const m = new Map(mm.map((x) => [x.成員ID, x]));
     const h = new Map(hh.map((x) => [x.家庭ID, x]));
-    const t = new Map(tt.filter((x) => x.角色 === '隊員').map((x) => [x.成員ID, x.小隊]));
-    const c = new Map(cc.filter((x) => !x.課程).map((x) => [x.報名ID, x]));
+    const c = new Map(cc.filter((x) => !x.分組ID).map((x) => [x.報名ID, x]));
     return regs
       .sort((a, b) => (Number(a.序號) || 1e9) - (Number(b.序號) || 1e9))
       .map((r) => {
@@ -46,12 +56,12 @@ export async function buildDataset(sheetId: string, key: DatasetKey): Promise<Re
           Email: hou?.Email ?? '',
           地址: hou?.地址 ?? '',
           特殊需求: mem?.特殊需求 ?? '',
-          課程: r.課程,
+          課程: state.courseNames(r.報名ID, r.成員ID),
           報名狀態: r.狀態,
           報名類型: r.報名類型,
           來源: r.來源,
           報名時間: r.報名時間,
-          小隊: t.get(r.成員ID) ?? '',
+          小隊: state.teamOf(r.成員ID)?.名稱 ?? '',
           報到狀態: ci?.狀態 ?? '',
           報到時間: ci?.報到時間 ?? '',
           晚到: ci?.晚到 ?? '',
@@ -59,17 +69,21 @@ export async function buildDataset(sheetId: string, key: DatasetKey): Promise<Re
         };
       });
   }
-  if (key === 'checkins') return (await checkIns(sheetId).all()) as unknown as Record<string, string>[];
-  if (key === 'logs') return (await logs(sheetId).all()) as unknown as Record<string, string>[];
-  const [aa, ss] = await Promise.all([attendance(sheetId).all(), schedules(sheetId).all()]);
+  if (key === 'checkins') {
+    return (await checkIns(eventId).all()).map((c) => ({ ...c, 報到對象: c.分組ID ? groupLabel(c.分組ID) : '一般報到' }));
+  }
+  if (key === 'logs') return (await logs(eventId).all()) as unknown as Record<string, string>[];
+  const [aa, ss] = await Promise.all([attendance(eventId).all(), schedules(eventId).all()]);
   const slot = new Map(ss.map((s) => [s.時段ID, s]));
+  if (key === 'groupMembers' || key === 'groupStats') return buildGroupDatasets(eventId, key, eventName, state, aa, ss);
   return aa.map((a) => {
     const s = slot.get(a.時段ID);
     return {
       日期: s?.日期 ?? a.時段ID.replace('DAY-', ''),
       時段: s ? `${s.開始}-${s.結束}` : '整日',
       內容: s?.內容 ?? '',
-      小隊: a.小隊,
+      分組類型: state.byId.get(a.分組ID)?.類型 ?? '',
+      分組: groupLabel(a.分組ID),
       姓名: a.姓名,
       狀態: a.狀態,
       備註: a.備註,
@@ -79,19 +93,98 @@ export async function buildDataset(sheetId: string, key: DatasetKey): Promise<Re
   });
 }
 
-export async function summary(sheetId: string) {
-  const [regs, cc, aa] = await Promise.all([registrations(sheetId).all(), checkIns(sheetId).all(), attendance(sheetId).all()]);
+type GroupState = Awaited<ReturnType<typeof loadGroupState>>;
+
+/** 分組成員明細與分組統計：以分組成員為主，串報名、成員、報到、點名 */
+async function buildGroupDatasets(
+  eventId: string,
+  key: 'groupMembers' | 'groupStats',
+  eventName: string,
+  state: GroupState,
+  aa: Awaited<ReturnType<ReturnType<typeof attendance>['all']>>,
+  ss: Awaited<ReturnType<ReturnType<typeof schedules>['all']>>,
+): Promise<Record<string, string>[]> {
+  const [regs, mm, cc] = await Promise.all([registrations(eventId).all(), members().all(), checkIns(eventId).all()]);
+  const regById = new Map(regs.map((r) => [r.報名ID, r]));
+  const regByMember = new Map(regs.map((r) => [r.成員ID, r]));
+  const memberById = new Map(mm.map((m) => [m.成員ID, m]));
+  const checkin = (報名ID: string, 分組ID: string) => cc.find((c) => c.報名ID === 報名ID && c.分組ID === 分組ID)?.狀態 ?? '';
+  // 應出席時段：時間表中屬於該分組（含全部、全部同類型）的時段，加上實際有點名的整日時段
+  const slotsOf = (分組ID: string, 類型: string) => {
+    const ids = new Set(ss.filter((s) => s.分組ID === 分組ID || (!s.分組ID && (!s.分組類型 || s.分組類型 === 類型))).map((s) => s.時段ID));
+    for (const a of aa) if (a.分組ID === 分組ID) ids.add(a.時段ID);
+    return ids.size;
+  };
+
+  const rows = state.members.map((m) => {
+    const g = state.byId.get(m.分組ID);
+    const reg = (m.報名ID && regById.get(m.報名ID)) || regByMember.get(m.成員ID);
+    const mem = memberById.get(m.成員ID);
+    const mine = aa.filter((a) => a.分組ID === m.分組ID && a.成員ID === m.成員ID);
+    const present = mine.filter((a) => PRESENT.includes(a.狀態)).length;
+    const expected = LEARNER_ROLES.includes(m.角色) ? slotsOf(m.分組ID, m.類型) : 0;
+    return {
+      活動: eventName || eventId,
+      分組類型: m.類型,
+      分組名稱: g?.名稱 ?? '',
+      代碼: g?.代碼 ?? '',
+      姓名: m.姓名 || reg?.姓名 || mem?.姓名 || m.成員ID,
+      性別: mem?.性別 ?? '',
+      年級: mem?.年級 || reg?.年級 || '',
+      學校: mem?.學校 ?? '',
+      角色: m.角色,
+      報名狀態: reg?.狀態 ?? '',
+      一般報到: reg ? checkin(reg.報名ID, '') : '',
+      該組報到: reg && m.類型 === '課程' ? checkin(reg.報名ID, m.分組ID) : '',
+      出席次數: String(present),
+      應出席時段數: expected ? String(expected) : '',
+      出席率: pct(present, expected),
+      _分組ID: m.分組ID,
+      _learner: LEARNER_ROLES.includes(m.角色) && reg?.狀態 !== RegistrationStatus.Cancelled ? '1' : '',
+    };
+  });
+  if (key === 'groupMembers') return rows.map(({ _分組ID, _learner, ...r }) => r);
+
+  return state.groups.map((g) => {
+    const learners = rows.filter((r) => r._分組ID === g.分組ID && r._learner);
+    const recorded = aa.filter((a) => a.分組ID === g.分組ID);
+    const present = recorded.filter((a) => PRESENT.includes(a.狀態)).length;
+    const arrived = learners.filter((r) => (g.類型 === '課程' ? r.該組報到 : r.一般報到) === CheckInStatus.Arrived).length;
+    return {
+      分組類型: g.類型,
+      分組名稱: g.名稱,
+      代碼: g.代碼,
+      名額: g.名額,
+      報名數: String(learners.length),
+      報到數: String(arrived),
+      點名人次: String(recorded.length),
+      出席人次: String(present),
+      平均出席率: pct(present, recorded.length),
+    };
+  });
+}
+
+export async function summary(eventId: string) {
+  const [regs, cc, aa, state] = await Promise.all([
+    registrations(eventId).all(),
+    checkIns(eventId).all(),
+    attendance(eventId).all(),
+    loadGroupState(eventId),
+  ]);
   const active = regs.filter((r) => r.狀態 !== RegistrationStatus.Cancelled);
   const countBy = <T,>(list: T[], key: (x: T) => string) => {
     const m = new Map<string, number>();
     for (const x of list) m.set(key(x) || '（空白）', (m.get(key(x) || '（空白）') ?? 0) + 1);
     return [...m.entries()];
   };
-  const general = cc.filter((c) => !c.課程);
+  const general = cc.filter((c) => !c.分組ID);
   const accepted = active.filter((r) => r.狀態 === RegistrationStatus.Accepted);
   const arrived = new Set(general.filter((c) => c.狀態 === CheckInStatus.Arrived).map((c) => c.報名ID));
+  const activeIds = new Set(active.map((r) => r.報名ID));
   const courseCounts = new Map<string, number>();
-  for (const r of active) for (const c of r.課程.split(',').filter(Boolean)) courseCounts.set(c, (courseCounts.get(c) ?? 0) + 1);
+  for (const c of state.courses) {
+    courseCounts.set(c.名稱, state.members.filter((m) => m.分組ID === c.分組ID && LEARNER_ROLES.includes(m.角色) && activeIds.has(m.報名ID)).length);
+  }
   const byGroup = countBy(accepted, (r) => gradeGroup(r.年級)).sort(
     ([a], [b]) => GRADE_GROUP_ORDER.indexOf(a) - GRADE_GROUP_ORDER.indexOf(b),
   );
@@ -110,7 +203,7 @@ export async function summary(sheetId: string) {
     },
     attendance: {
       recorded: aa.length,
-      present: aa.filter((a) => a.狀態 === '出席' || a.狀態 === '遲到').length,
+      present: aa.filter((a) => PRESENT.includes(a.狀態)).length,
     },
   };
 }

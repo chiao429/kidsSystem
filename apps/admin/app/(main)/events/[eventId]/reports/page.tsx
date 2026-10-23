@@ -21,7 +21,7 @@ function Breakdown({ title, rows }: { title: string; rows: readonly (readonly [s
 
 export default async function ReportsPage({ params }: { params: { eventId: string } }) {
   const event = await getEvent(params.eventId);
-  const s = await summary(event.sheetId);
+  const s = await summary(event.活動ID);
   return (
     <>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">

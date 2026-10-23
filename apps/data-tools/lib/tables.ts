@@ -1,12 +1,12 @@
 import 'server-only';
 import { SheetTable } from '@kids/sheets-core';
-import { HouseholdTable, MemberTable, EventTable, RegistrationTable, TeamTable } from '@kids/schema';
+import { HouseholdTable, MemberTable, EventTable, RegistrationTable, GroupTable, GroupMemberTable } from '@kids/schema';
 
-const MASTER_ID = process.env.GOOGLE_MASTER_SHEET_ID ?? '';
+const D = 'data-tools' as const;
 
-// 寫入：小隊　讀取：家庭、成員、活動、報名
-export const households = () => new SheetTable(MASTER_ID, HouseholdTable);
-export const members = () => new SheetTable(MASTER_ID, MemberTable);
-export const events = () => new SheetTable(MASTER_ID, EventTable);
-export const registrations = (eventSheetId: string) => new SheetTable(eventSheetId, RegistrationTable);
-export const teams = (eventSheetId: string) => new SheetTable(eventSheetId, TeamTable);
+export const households = () => new SheetTable('master', HouseholdTable, D);
+export const members = () => new SheetTable('master', MemberTable, D);
+export const events = () => new SheetTable('master', EventTable, D);
+export const registrations = (eventId: string) => new SheetTable(eventId, RegistrationTable, D);
+export const groups = (eventId: string) => new SheetTable(eventId, GroupTable, D);
+export const groupMembers = (eventId: string) => new SheetTable(eventId, GroupMemberTable, D);

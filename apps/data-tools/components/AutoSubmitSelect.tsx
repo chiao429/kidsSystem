@@ -3,7 +3,7 @@
 import { useRef } from 'react';
 
 /** 選了就送出所屬表單 */
-export function AutoSubmitSelect({ name, value, options }: { name: string; value: string; options: string[] }) {
+export function AutoSubmitSelect({ name, value, options }: { name: string; value: string; options: { value: string; label: string }[] }) {
   const ref = useRef<HTMLSelectElement>(null);
   return (
     <select
@@ -15,7 +15,9 @@ export function AutoSubmitSelect({ name, value, options }: { name: string; value
     >
       <option value="">（未分隊）</option>
       {options.map((o) => (
-        <option key={o}>{o}</option>
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
       ))}
     </select>
   );

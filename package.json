@@ -6,6 +6,7 @@
     "apps/*"
   ],
   "scripts": {
+    "dev": "node scripts/dev.mjs",
     "dev:registration": "npm run dev -w @kids/registration",
     "dev:checkin": "npm run dev -w @kids/checkin",
     "dev:rollcall": "npm run dev -w @kids/rollcall",
