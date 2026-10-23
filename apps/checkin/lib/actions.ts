@@ -12,7 +12,7 @@ import {
 import { checkInKey, loadBoard, loadGroups, loadSlots } from './board';
 import { getEvent } from './events';
 import { checkIns, groupMembers, logs, members, registrations } from './tables';
-import type { ActionResult, Board, SlotInfo } from './types';
+import type { ActionResult, Board, CheckInOutcome, ScanRow, SlotInfo } from './types';
 
 
 function session(eventId: string) {
@@ -73,7 +73,7 @@ export async function checkIn(
     return { error: `${reg.姓名} 已標記「不會出席」，如要報到請先按「恢復」` };
   }
   if (existing?.狀態 === CheckInStatus.Arrived) {
-    return { ok: true, message: `${reg.姓名} 已於 ${existing.報到時間} 報到過` };
+    return { ok: true, already: true, message: `${reg.姓名} 已於 ${existing.報到時間.split(' ')[1]?.slice(0, 5) ?? existing.報到時間} 報到過` };
   }
 
   // 第一次報到補資料
@@ -91,6 +91,42 @@ export async function checkIn(
   );
   await log(event.活動ID, s.name, course ? `課程報到：${await courseName(event.活動ID, course)}` : '報到', reg.報名ID, reg.姓名);
   return { ok: true, message: `${reg.姓名} 報到成功` };
+}
+
+/**
+ * 掃描或點選：找出要處理的孩子。
+ * code 為報名ID（個人 QR）或家庭ID（家庭 QR：本活動此家庭所有有效報名）。
+ * 課程報到時，沒有報名此課程的家人也會列出（enrolled = false），但不能報到。
+ */
+export async function lookupScan(eventId: string, code: string, course = ''): Promise<{ error?: string; rows?: ScanRow[] }> {
+  session(eventId);
+  const id = code.trim();
+  const all = await loadBoard(eventId, '');
+  const picked = all.rows.filter((r) => r.報名ID === id || r.家庭ID === id);
+  if (picked.length === 0) return { error: `查無此 QR Code：${id}` };
+  if (!course) return { rows: picked.map((r) => ({ ...r, enrolled: true })) };
+  const courseRows = new Map((await loadBoard(eventId, course)).rows.map((r) => [r.報名ID, r]));
+  return { rows: picked.map((r) => ({ ...(courseRows.get(r.報名ID) ?? r), enrolled: courseRows.has(r.報名ID) })) };
+}
+
+/** 一次幫多位孩子報到（已在確認視窗確認過備取、第一次報名等情況） */
+export async function checkInMany(
+  eventId: string,
+  course: string,
+  method: string,
+  items: { 報名ID: string; 特殊需求?: string }[],
+): Promise<CheckInOutcome[]> {
+  session(eventId);
+  const out: CheckInOutcome[] = [];
+  for (const item of items.slice(0, 20)) {
+    const res = await checkIn(eventId, { ...item, course, method, force: true });
+    out.push({
+      報名ID: item.報名ID,
+      status: res.error ? 'error' : res.already ? 'already' : 'done',
+      message: res.error ?? res.message ?? '',
+    });
+  }
+  return out;
 }
 
 /** 取消報到 / 標記不會出席 / 清除 */

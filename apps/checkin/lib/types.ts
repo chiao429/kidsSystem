@@ -4,6 +4,7 @@ export interface BoardRow {
   報名ID: string;
   序號: string;
   成員ID: string;
+  家庭ID: string;
   姓名: string;
   性別: string;
   年級: string;
@@ -47,6 +48,19 @@ export interface ActionResult {
   /** 需要工作人員確認（例如備取者報到） */
   confirm?: string;
   message?: string;
+  /** 之前已經報到過（這次沒有再寫入） */
+  already?: boolean;
+}
+
+/** 掃描或點選後要處理的孩子；enrolled：課程報到時是否有報名此課程 */
+export interface ScanRow extends BoardRow {
+  enrolled: boolean;
+}
+
+export interface CheckInOutcome {
+  報名ID: string;
+  status: 'done' | 'already' | 'error';
+  message: string;
 }
 
 export interface SlotInfo {

@@ -18,7 +18,13 @@ export default async function DonePage({
   if (!event) notFound();
   const ids = (searchParams.ids ?? '').split(',').filter(Boolean).slice(0, 20);
   const all = await registrations(event.活動ID).all({ fresh: true });
-  const rows = ids.map((id) => all.find((r) => r.報名ID === id)).filter((r) => !!r);
+  // 一個家庭一個 QR Code（內容為家庭ID），列出此家庭在本活動所有有效報名
+  const familyIds = Array.from(new Set(ids.map((id) => all.find((r) => r.報名ID === id)?.家庭ID).filter((x): x is string => !!x)));
+  const families = familyIds.map((家庭ID) => ({
+    家庭ID,
+    rows: all.filter((r) => r.家庭ID === 家庭ID && r.狀態 !== '取消').sort((a, b) => (Number(a.序號) || 0) - (Number(b.序號) || 0)),
+  }));
+  const rows = families.flatMap((f) => f.rows);
   const [gg, gm] = await Promise.all([groups(event.活動ID).all(), groupMembers(event.活動ID).all({ fresh: true })]);
   const courseNames = (報名ID: string) =>
     gm
@@ -26,7 +32,7 @@ export default async function DonePage({
       .map((m) => gg.find((g) => g.分組ID === m.分組ID)?.名稱 ?? '')
       .filter(Boolean)
       .join('、');
-  const qrs = await Promise.all(rows.map((r) => QRCode.toDataURL(r.報名ID, { margin: 1, width: 240 })));
+  const qrs = await Promise.all(families.map((f) => QRCode.toDataURL(f.家庭ID, { margin: 1, width: 280 })));
   const checkinUrl = process.env.NEXT_PUBLIC_CHECKIN_URL?.replace(/\/+$/, '');
 
   return (
@@ -37,21 +43,27 @@ export default async function DonePage({
           {rows.some((r) => r.狀態 !== '正取') && ' 備取或待審核者，主辦單位將另行通知。'}
         </p>
       </Card>
-      {rows.map((r, i) => (
-        <Card key={r.報名ID}>
-          <div className="flex flex-col items-center gap-4 sm:flex-row">
+      {families.map((f, i) => (
+        <Card key={f.家庭ID}>
+          <div className="flex flex-col items-center gap-4">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={qrs[i]} alt={`${r.姓名} 報到 QR Code`} className="h-48 w-48" />
-            <div className="space-y-1">
-              <div className="text-2xl font-bold">{r.姓名}</div>
-              <div className="text-gray-600">
-                {event.名稱}｜序號 {r.序號}
-              </div>
-              <div className="text-gray-600">{r.年級}</div>
-              {courseNames(r.報名ID) && <div className="text-gray-600">課程：{courseNames(r.報名ID)}</div>}
-              <Badge tone={tone[r.狀態 as keyof typeof tone] ?? 'gray'}>{r.狀態}</Badge>
-              <div className="font-mono text-xs text-gray-400">{r.報名ID}</div>
+            <img src={qrs[i]} alt="家庭報到 QR Code" className="h-56 w-56" />
+            <p className="text-center text-sm text-gray-600">
+              {event.名稱}｜全家共用一個 QR Code{f.rows.length > 1 && `，掃描一次 ${f.rows.length} 位一起報到`}
+            </p>
+            <div className="w-full divide-y rounded-lg border">
+              {f.rows.map((r) => (
+                <div key={r.報名ID} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2">
+                  <span className="text-lg font-bold">{r.姓名}</span>
+                  <span className="text-sm text-gray-500">序號 {r.序號}・{r.年級}</span>
+                  {courseNames(r.報名ID) && <span className="text-sm text-gray-600">課程：{courseNames(r.報名ID)}</span>}
+                  <span className="ml-auto">
+                    <Badge tone={tone[r.狀態 as keyof typeof tone] ?? 'gray'}>{r.狀態}</Badge>
+                  </span>
+                </div>
+              ))}
             </div>
+            <div className="font-mono text-xs text-gray-400">{f.家庭ID}</div>
           </div>
         </Card>
       ))}

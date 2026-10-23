@@ -54,6 +54,7 @@ export async function loadBoard(eventId: string, course = ''): Promise<Board> {
         報名ID: r.報名ID,
         序號: r.序號,
         成員ID: r.成員ID,
+        家庭ID: r.家庭ID,
         姓名: r.姓名,
         性別: m?.性別 ?? '',
         年級: m?.年級 || r.年級,

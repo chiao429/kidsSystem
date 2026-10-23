@@ -1,9 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
-import { Alert, Badge, Button, Card, Input, Select, Textarea } from '@kids/ui';
-import { checkIn, fetchBoard, setStatus, toggleFlag } from '@/lib/actions';
-import type { ActionResult, Board, BoardRow } from '@/lib/types';
+import { Alert, Badge, Button, Card, Input, Select } from '@kids/ui';
+import { checkInMany, fetchBoard, lookupScan, setStatus, toggleFlag } from '@/lib/actions';
+import type { ActionResult, Board, BoardRow, ScanRow } from '@/lib/types';
+import { ConfirmDialog, MessageDialog, ResultDialog, blockedReason, needsConfirm, type ResultState } from './CheckInDialogs';
 import { Scanner } from './Scanner';
 
 const REFRESH_MS = 10_000;
@@ -22,8 +23,10 @@ export function CheckInBoard({ eventId, initial, registrationUrl }: { eventId: s
   const [filter, setFilter] = useState<'all' | 'pending' | 'arrived'>('all');
   const [flash, setFlash] = useState<{ tone: 'green' | 'red' | 'amber'; text: string } | null>(null);
   const [scanning, setScanning] = useState(false);
-  const [firstTime, setFirstTime] = useState<{ row: BoardRow; method: string } | null>(null);
-  const [note, setNote] = useState('');
+  const [confirming, setConfirming] = useState<{ rows: ScanRow[]; method: string } | null>(null);
+  const [result, setResult] = useState<ResultState | null>(null);
+  const [message, setMessage] = useState('');
+  const dialogOpen = !!confirming || !!result || !!message;
   const [pending, startTransition] = useTransition();
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -42,31 +45,33 @@ export function CheckInBoard({ eventId, initial, registrationUrl }: { eventId: s
     else setFlash({ tone: 'green', text: res.message ?? ok ?? '完成' });
   };
 
-  const doCheckIn = (row: BoardRow, method: string, extra: { force?: boolean; 特殊需求?: string } = {}) =>
+  const closeResult = useCallback(() => {
+    setResult(null);
+    searchRef.current?.focus();
+  }, []);
+  const closeMessage = useCallback(() => setMessage(''), []);
+
+  /** 幫指定的孩子報到，然後彈出結果視窗 */
+  const runCheckIn = (rows: ScanRow[], method: string, items: { 報名ID: string; 特殊需求?: string }[]) =>
     startTransition(async () => {
-      let res = await checkIn(eventId, { 報名ID: row.報名ID, course, method, ...extra });
-      if (res.confirm) {
-        if (!window.confirm(res.confirm)) return;
-        res = await checkIn(eventId, { 報名ID: row.報名ID, course, method, ...extra, force: true });
-      }
-      show(res);
+      const outcomes = items.length > 0 ? await checkInMany(eventId, course, method, items) : [];
+      const chosen = new Set(items.map((i) => i.報名ID));
+      setConfirming(null);
+      setResult({ rows, outcomes, skipped: rows.filter((r) => !blockedReason(r) && !chosen.has(r.報名ID)).map((r) => r.報名ID) });
       setQuery('');
       await refresh();
-      searchRef.current?.focus();
     });
 
-  const startCheckIn = (row: BoardRow, method = '搜尋') => {
-    if (row.報到狀態 === '不會出席') {
-      setFlash({ tone: 'red', text: `${row.姓名} 已標記「不會出席」，如要報到請先按「恢復」` });
+  /** 一般情況直接報到；有備取、待審核、第一次報名時先彈出確認視窗 */
+  const handleRows = (rows: ScanRow[], method: string) => {
+    if (rows.some((r) => needsConfirm(r, course))) {
+      setConfirming({ rows, method });
       return;
     }
-    if (row.報名類型 === '第一次報名' && !row.報到狀態 && !course) {
-      setNote(row.特殊需求);
-      setFirstTime({ row, method });
-      return;
-    }
-    doCheckIn(row, method);
+    runCheckIn(rows, method, rows.filter((r) => !blockedReason(r)).map((r) => ({ 報名ID: r.報名ID })));
   };
+
+  const startCheckIn = (row: BoardRow, method = '搜尋') => handleRows([{ ...row, enrolled: true }], method);
 
   const act = (fn: () => Promise<ActionResult>) =>
     startTransition(async () => {
@@ -74,20 +79,24 @@ export function CheckInBoard({ eventId, initial, registrationUrl }: { eventId: s
       await refresh();
     });
 
+  /** QR 內容為報名ID（個人）或家庭ID（全家） */
   const onScan = useCallback(
     (text: string) => {
-      const row = board.rows.find((r) => r.報名ID === text.trim());
-      if (!row) setFlash({ tone: 'red', text: `查無此 QR Code：${text}` });
-      else startCheckIn(row, 'QR');
+      if (dialogOpen) return;
+      startTransition(async () => {
+        const res = await lookupScan(eventId, text, course);
+        if (res.error || !res.rows) setMessage(res.error ?? '查無資料');
+        else handleRows(res.rows, 'QR');
+      });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [board, course],
+    [eventId, course, dialogOpen],
   );
 
-  // 掃描槍：輸入框收到完整報名ID 直接報到
+  // 掃描槍：輸入框收到完整報名ID 或家庭ID 直接報到
   const onQueryChange = (v: string) => {
     setQuery(v);
-    if (/^R-\d{8}-[A-Z0-9]{6}$/.test(v.trim())) onScan(v.trim());
+    if (/^[RH]-\d{8}-[A-Z0-9]{6}$/.test(v.trim())) onScan(v.trim());
   };
 
   const rows = useMemo(() => {
@@ -148,7 +157,7 @@ export function CheckInBoard({ eventId, initial, registrationUrl }: { eventId: s
         </div>
         {scanning && (
           <div className="mt-3">
-            <Scanner onScan={onScan} onClose={() => setScanning(false)} />
+            <Scanner onScan={onScan} onClose={() => setScanning(false)} paused={dialogOpen || pending} />
           </div>
         )}
         <div className="mt-3 flex flex-wrap gap-2">
@@ -173,32 +182,17 @@ export function CheckInBoard({ eventId, initial, registrationUrl }: { eventId: s
         )}
       </Card>
 
-      {firstTime && (
-        <Card title={`第一次報到：${firstTime.row.姓名}`}>
-          <div className="space-y-3">
-            <p className="text-sm text-gray-600">
-              請和家長確認聯絡電話（{firstTime.row.電話}）並補充特殊需求（過敏、用藥、需特別照顧的地方）。
-            </p>
-            <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="特殊需求（無則留白）" />
-            <div className="flex gap-2">
-              <Button
-                variant="success"
-                disabled={pending}
-                onClick={() => {
-                  const { row, method } = firstTime;
-                  setFirstTime(null);
-                  doCheckIn(row, method, { 特殊需求: note });
-                }}
-              >
-                確認報到
-              </Button>
-              <Button variant="ghost" onClick={() => setFirstTime(null)}>
-                取消
-              </Button>
-            </div>
-          </div>
-        </Card>
+      {confirming && (
+        <ConfirmDialog
+          rows={confirming.rows}
+          course={course}
+          pending={pending}
+          onCancel={() => setConfirming(null)}
+          onConfirm={(items) => runCheckIn(confirming.rows, confirming.method, items)}
+        />
       )}
+      {result && <ResultDialog result={result} onClose={closeResult} />}
+      {message && <MessageDialog text={message} onClose={closeMessage} />}
 
       <div className="space-y-2">
         {rows.slice(0, 100).map((r) => (

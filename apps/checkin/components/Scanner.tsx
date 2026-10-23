@@ -30,10 +30,24 @@ function createDecoder(): Decode {
   };
 }
 
-/** 相機掃 QR（iPhone、Android 皆可）；也可以直接在搜尋框輸入或使用掃描槍 */
-export function Scanner({ onScan, onClose }: { onScan: (text: string) => void; onClose: () => void }) {
+/** 對準框四個角 */
+const CORNERS = [
+  'left-0 top-0 border-l-4 border-t-4 rounded-tl-lg',
+  'right-0 top-0 border-r-4 border-t-4 rounded-tr-lg',
+  'left-0 bottom-0 border-l-4 border-b-4 rounded-bl-lg',
+  'right-0 bottom-0 border-r-4 border-b-4 rounded-br-lg',
+];
+
+/**
+ * 相機掃 QR（iPhone、Android 皆可）；也可以直接在搜尋框輸入或使用掃描槍。
+ * paused：提示視窗開著時暫停辨識，避免連續誤掃。
+ */
+export function Scanner({ onScan, onClose, paused = false }: { onScan: (text: string) => void; onClose: () => void; paused?: boolean }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
   const [error, setError] = useState('');
+  const [hit, setHit] = useState(false);
 
   useEffect(() => {
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -54,12 +68,15 @@ export function Scanner({ onScan, onClose }: { onScan: (text: string) => void; o
         video.srcObject = s;
         void video.play().catch(() => {});
         timer = setInterval(async () => {
-          if (busy || video.readyState < 2) return;
+          if (busy || pausedRef.current || video.readyState < 2) return;
           busy = true;
           try {
             const text = await decode(video);
             if (text && text !== last) {
               last = text;
+              setHit(true);
+              setTimeout(() => setHit(false), 600);
+              navigator.vibrate?.(80);
               onScan(text);
               setTimeout(() => (last = ''), 3000);
             }
@@ -87,7 +104,20 @@ export function Scanner({ onScan, onClose }: { onScan: (text: string) => void; o
       {error ? (
         <p className="text-sm text-red-600">{error}</p>
       ) : (
-        <video ref={videoRef} className="mx-auto aspect-square w-full max-w-xs rounded-lg bg-black object-cover" muted autoPlay playsInline />
+        <div className="relative mx-auto aspect-square w-full max-w-xs overflow-hidden rounded-lg bg-black">
+          <video ref={videoRef} className="h-full w-full object-cover" muted autoPlay playsInline />
+          {/* 對準框：框外變暗，四角框線；掃到時變綠 */}
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <div className="relative h-[62%] w-[62%] rounded-lg shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]">
+              {CORNERS.map((c) => (
+                <span key={c} className={`absolute h-8 w-8 ${c} ${hit ? 'border-emerald-400' : 'border-white'} transition-colors`} />
+              ))}
+            </div>
+          </div>
+          <p className="pointer-events-none absolute inset-x-0 bottom-2 text-center text-sm text-white drop-shadow">
+            {paused ? '處理中…' : '將 QR Code 對準框內'}
+          </p>
+        </div>
       )}
       <button onClick={onClose} className="text-sm text-gray-600 underline">
         關閉相機
