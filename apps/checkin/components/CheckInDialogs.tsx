@@ -2,9 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Badge, Button, Textarea } from '@kids/ui';
-import type { CheckInOutcome, ScanRow } from '@/lib/types';
-
-const AUTO_CLOSE_MS = 3000;
+import type { ActionResult, CheckInOutcome, ScanRow } from '@/lib/types';
 
 /** 這位孩子可以報到嗎？不行時回傳原因 */
 export function blockedReason(r: ScanRow): string | null {
@@ -72,15 +70,19 @@ export function ConfirmDialog({
   pending,
   onCancel,
   onConfirm,
+  onSetAbsent,
 }: {
   rows: ScanRow[];
   course: string;
   pending: boolean;
   onCancel: () => void;
   onConfirm: (items: { 報名ID: string; 特殊需求?: string }[]) => void;
+  onSetAbsent: (報名ID: string) => Promise<ActionResult>;
 }) {
   const [checked, setChecked] = useState(() => new Set(rows.filter((r) => !blockedReason(r) && r.報名狀態 === '正取').map((r) => r.報名ID)));
   const [notes, setNotes] = useState<Record<string, string>>(() => Object.fromEntries(rows.map((r) => [r.報名ID, r.特殊需求])));
+  const [markingAbsent, setMarkingAbsent] = useState<string | null>(null);
+  const [error, setError] = useState('');
   const first = rows[0];
   const askNote = (r: ScanRow) => r.報名類型 === '第一次報名' && !r.報到狀態 && !course;
   return (
@@ -90,6 +92,7 @@ export function ConfirmDialog({
         {rows.some(askNote) && `第一次報名：請和家長確認電話（${first.電話}）並補充特殊需求。`}
         {rows.some((r) => r.報名狀態 !== '正取' && !blockedReason(r)) && '備取或待審核的孩子預設不勾選，確認後再勾選。'}
       </p>
+      {error && <p className="mb-3 rounded bg-red-50 px-2 py-1 text-sm text-red-700">{error}</p>}
       <div className="space-y-2">
         {rows.map((r) => {
           const blocked = blockedReason(r);
@@ -122,6 +125,26 @@ export function ConfirmDialog({
                       placeholder="特殊需求（過敏、用藥、需特別照顧的地方；無則留白）"
                     />
                   )}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="mt-2"
+                    disabled={pending || markingAbsent !== null}
+                    onClick={async () => {
+                      setError('');
+                      setMarkingAbsent(r.報名ID);
+                      const res = await onSetAbsent(r.報名ID);
+                      setMarkingAbsent(null);
+                      if (res.error) setError(res.error);
+                      else setChecked((current) => {
+                        const next = new Set(current);
+                        next.delete(r.報名ID);
+                        return next;
+                      });
+                    }}
+                  >
+                    {markingAbsent === r.報名ID ? '設定中…' : '不會到'}
+                  </Button>
                 </>
               )}
             </ChildInfo>
@@ -158,12 +181,8 @@ export interface ResultState {
   skipped?: string[];
 }
 
-/** 報到結果：3 秒後自動關閉，也可點背景或關閉按鈕 */
+/** 報到結果：由工作人員手動關閉 */
 export function ResultDialog({ result, onClose }: { result: ResultState; onClose: () => void }) {
-  useEffect(() => {
-    const t = setTimeout(onClose, AUTO_CLOSE_MS);
-    return () => clearTimeout(t);
-  }, [onClose]);
   const outcomeOf = (id: string) => result.outcomes.find((o) => o.報名ID === id);
   const done = result.outcomes.filter((o) => o.status === 'done').length;
   const failed = result.outcomes.some((o) => o.status === 'error');
@@ -195,12 +214,8 @@ export function ResultDialog({ result, onClose }: { result: ResultState; onClose
   );
 }
 
-/** 錯誤訊息（例如查無 QR Code）：3 秒後自動關閉 */
+/** 錯誤訊息（例如查無 QR Code）：由工作人員手動關閉 */
 export function MessageDialog({ text, onClose }: { text: string; onClose: () => void }) {
-  useEffect(() => {
-    const t = setTimeout(onClose, AUTO_CLOSE_MS);
-    return () => clearTimeout(t);
-  }, [onClose]);
   return (
     <Modal onClose={onClose} tone="red">
       <div className="pr-8 text-xl font-bold text-red-700">{text}</div>

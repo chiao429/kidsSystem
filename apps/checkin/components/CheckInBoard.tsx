@@ -188,6 +188,18 @@ export function CheckInBoard({ eventId, initial, registrationUrl }: { eventId: s
           course={course}
           pending={pending}
           onCancel={() => setConfirming(null)}
+          onSetAbsent={async (報名ID) => {
+            const res = await setStatus(eventId, 報名ID, course, '不會出席');
+            if (!res.error) {
+              setConfirming((current) =>
+                current
+                  ? { ...current, rows: current.rows.map((r) => (r.報名ID === 報名ID ? { ...r, 報到狀態: '不會出席' } : r)) }
+                  : current,
+              );
+              await refresh();
+            }
+            return res;
+          }}
           onConfirm={(items) => runCheckIn(confirming.rows, confirming.method, items)}
         />
       )}
