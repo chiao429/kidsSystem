@@ -35,7 +35,8 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
     DATA_TOOLS_ORIGIN=$DATA_TOOLS_ORIGIN \
     SITE_HOST=$SITE_HOST
 WORKDIR /repo
-COPY --from=deps /repo/node_modules ./node_modules
+# 連同各 workspace 底下的 node_modules 一起帶過來（例如 packages/sheets-core/node_modules/mongodb）
+COPY --from=deps /repo ./
 COPY . .
 RUN test -n "$APP" && npm run build -w @kids/$APP
 

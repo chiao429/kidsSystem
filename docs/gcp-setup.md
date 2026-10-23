@@ -16,6 +16,17 @@ https://kids-stg-registration-<專案編號>.asia-east1.run.app/admin    ← 轉
 
 各服務網址固定為 `https://<服務名稱>-<專案編號>.<區域>.run.app`，workflow 會自動算出來，並在 build 時寫入轉送設定，不需要手動填。
 
+## 最快的方式：一鍵設定腳本
+
+第二到第六步、第八步可以用腳本一次完成（可重複執行，已建立的會略過）：
+
+```bash
+gcloud auth login
+bash scripts/gcp-setup.sh
+```
+
+腳本會詢問 GCP 專案 ID、Sheets 金鑰檔路徑、MongoDB 網址與主資料試算表 ID。若有安裝並登入 GitHub CLI（`gh`），GitHub Environments 的變數也會自動寫入；否則最後會印出要貼上的值。下面是腳本做的每一步，供需要手動設定或排查時參考。
+
 ## 一、事前準備
 
 - GCP 專案（以下用 `$PROJECT_ID`），並已啟用帳單
@@ -27,7 +38,7 @@ https://kids-stg-registration-<專案編號>.asia-east1.run.app/admin    ← 轉
 ```bash
 PROJECT_ID=<你的專案ID>
 REGION=asia-east1
-REPO=<owner/name>
+REPO=chiao429/kidsSystem
 PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')
 gcloud config set project $PROJECT_ID
 ```
