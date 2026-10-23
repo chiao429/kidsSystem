@@ -25,8 +25,8 @@ export interface RegisterPayload {
   source: string;
   household: HouseholdInput;
   members: MemberInput[];
-  /** 既有家庭：以電話＋聯絡人姓名驗證 */
-  lookup?: { phone: string; name: string };
+  /** 既有家庭：以手機號碼查詢 */
+  lookup?: { phone: string };
   consent: boolean;
 }
 
@@ -38,6 +38,8 @@ export interface RegisterResult {
 
 export interface LookupResult {
   error?: string;
+  /** 此家庭在本活動已完成的報名（用來顯示報到 QR code） */
+  registrationIds?: string[];
   household?: HouseholdInput & { 家庭ID: string };
   members?: (Omit<MemberInput, 'courses' | 'selected'> & { 成員ID: string; registered: boolean })[];
 }

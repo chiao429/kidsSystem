@@ -12,7 +12,7 @@ export default async function DonePage({
   searchParams,
 }: {
   params: { eventId: string };
-  searchParams: { ids?: string; source?: string };
+  searchParams: { ids?: string; source?: string; view?: string };
 }) {
   const event = await getEvent(params.eventId);
   if (!event) notFound();
@@ -31,7 +31,7 @@ export default async function DonePage({
 
   return (
     <>
-      <Card title="報名完成">
+      <Card title={searchParams.view === 'qr' ? '報到 QR Code' : '報名完成'}>
         <p className="text-sm text-gray-700">
           請截圖保存以下 QR Code，活動當天出示即可快速報到。
           {rows.some((r) => r.狀態 !== '正取') && ' 備取或待審核者，主辦單位將另行通知。'}

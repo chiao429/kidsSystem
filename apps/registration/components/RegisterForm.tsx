@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Alert, Button, Card, Field, Input, Select, Textarea } from '@kids/ui';
+import { Alert, Button, Card, Field, Input, Select, Textarea, buttonClass } from '@kids/ui';
 import { lookupHousehold, submitRegistration } from '@/lib/actions';
 import type { CourseOption, HouseholdInput, MemberInput } from '@/lib/types';
 
@@ -37,7 +38,8 @@ export function RegisterForm({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState('');
   const [errors, setErrors] = useState<string[]>([]);
-  const [lookup, setLookup] = useState({ phone: '', name: '' });
+  const [lookup, setLookup] = useState({ phone: '' });
+  const [registeredIds, setRegisteredIds] = useState<string[]>([]);
   const [found, setFound] = useState(mode === 'new');
   const [registered, setRegistered] = useState<Set<string>>(new Set());
   const [household, setHousehold] = useState<HouseholdInput>({ 主要聯絡人: '', 電話: '', Email: '', 地址: '' });
@@ -50,12 +52,13 @@ export function RegisterForm({
   const doLookup = () =>
     startTransition(async () => {
       setError('');
-      const res = await lookupHousehold(eventId, lookup.phone, lookup.name);
+      const res = await lookupHousehold(eventId, lookup.phone);
       if (res.error || !res.household) {
         setError(res.error ?? '查無資料');
         return;
       }
       setHousehold(res.household);
+      setRegisteredIds(res.registrationIds ?? []);
       setRegistered(new Set(res.members?.filter((m) => m.registered).map((m) => m.成員ID)));
       setMembers(
         (res.members ?? []).map(({ registered: _registered, ...m }) => ({ ...m, courses: [], selected: false })),
@@ -104,13 +107,15 @@ export function RegisterForm({
       <Card title="查詢家庭資料">
         <div className="space-y-3">
           {messages}
-          <Field label="主要聯絡人姓名" required>
-            <Input value={lookup.name} onChange={(e) => setLookup({ ...lookup, name: e.target.value })} />
-          </Field>
           <Field label="手機號碼" required>
-            <Input inputMode="tel" value={lookup.phone} onChange={(e) => setLookup({ ...lookup, phone: e.target.value })} />
+            <Input
+              inputMode="tel"
+              value={lookup.phone}
+              onChange={(e) => setLookup({ phone: e.target.value })}
+              onKeyDown={(e) => e.key === 'Enter' && lookup.phone && doLookup()}
+            />
           </Field>
-          <Button onClick={doLookup} disabled={pending || !lookup.name || !lookup.phone}>
+          <Button onClick={doLookup} disabled={pending || !lookup.phone}>
             {pending ? '查詢中…' : '查詢'}
           </Button>
         </div>
@@ -121,6 +126,14 @@ export function RegisterForm({
   return (
     <div className="space-y-4">
       {messages}
+      {registeredIds.length > 0 && (
+        <Card title="已完成報名">
+          <p className="mb-3 text-sm text-gray-700">此家庭在本活動已有 {registeredIds.length} 位報名，活動當天出示報到 QR code 即可快速報到。</p>
+          <Link href={`/e/${eventId}/done?view=qr&ids=${registeredIds.join(',')}`} className={buttonClass('primary')}>
+            顯示報到 QR code
+          </Link>
+        </Card>
+      )}
       <Card title="家庭聯絡資料">
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="主要聯絡人" required>

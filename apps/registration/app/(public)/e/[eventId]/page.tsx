@@ -53,6 +53,11 @@ export default async function EventPage({ params }: { params: { eventId: string 
       ) : (
         <Alert tone="amber">{w.reason}</Alert>
       )}
+      <p className="text-center text-sm">
+        <Link href={`/e/${event.活動ID}/qr`} className="text-green-700 underline">
+          已經報名了？以手機號碼查詢報到 QR code
+        </Link>
+      </p>
     </>
   );
 }

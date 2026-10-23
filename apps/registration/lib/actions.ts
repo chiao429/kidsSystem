@@ -18,23 +18,25 @@ import type { LookupResult, MemberInput, RegisterPayload, RegisterResult } from 
 
 const clean = (v: unknown) => String(v ?? '').trim().slice(0, 200);
 
-async function findHousehold(phone: string, name: string) {
+/** 以手機號碼找家庭（手機號碼在家庭資料中唯一） */
+async function findHousehold(phone: string) {
   const p = normalizePhone(phone);
-  const n = clean(name);
-  if (!p || !n) return null;
+  if (!p) return null;
   const all = await households().all({ fresh: true });
-  return all.find((h) => normalizePhone(h.電話) === p && h.主要聯絡人.trim() === n) ?? null;
+  return all.find((h) => normalizePhone(h.電話) === p) ?? null;
 }
 
-export async function lookupHousehold(eventId: string, phone: string, name: string): Promise<LookupResult> {
+export async function lookupHousehold(eventId: string, phone: string): Promise<LookupResult> {
   const event = await getEvent(eventId);
   if (!event) return { error: '找不到活動' };
-  const household = await findHousehold(phone, name);
-  if (!household) return { error: '查無資料，請確認電話與聯絡人姓名，或改用「第一次報名」' };
+  const household = await findHousehold(phone);
+  if (!household) return { error: '查無資料，請確認手機號碼，或改用「第一次報名」' };
 
   const [allMembers, regs] = await Promise.all([members().all(), registrations(event.活動ID).all()]);
-  const registered = new Set(regs.filter(isActive).map((r) => r.成員ID));
+  const activeRegs = regs.filter(isActive);
+  const registered = new Set(activeRegs.map((r) => r.成員ID));
   return {
+    registrationIds: activeRegs.filter((r) => r.家庭ID === household.家庭ID).map((r) => r.報名ID),
     household: {
       家庭ID: household.家庭ID,
       主要聯絡人: household.主要聯絡人,
@@ -56,6 +58,19 @@ export async function lookupHousehold(eventId: string, phone: string, name: stri
         registered: registered.has(m.成員ID),
       })),
   };
+}
+
+/** 以手機號碼查詢此家庭在本活動的報名（不受報名期間限制，供家長找回報到 QR code） */
+export async function lookupQr(eventId: string, phone: string): Promise<{ error?: string; ids?: string[] }> {
+  const event = await getEvent(eventId);
+  if (!event) return { error: '找不到活動' };
+  const household = await findHousehold(phone);
+  if (!household) return { error: '查無資料，請確認手機號碼' };
+  const ids = (await registrations(event.活動ID).all())
+    .filter((r) => isActive(r) && r.家庭ID === household.家庭ID)
+    .map((r) => r.報名ID);
+  if (ids.length === 0) return { error: '此手機號碼在本活動沒有報名紀錄' };
+  return { ids };
 }
 
 function cleanMember(m: MemberInput): MemberInput {
@@ -98,7 +113,7 @@ export async function submitRegistration(payload: RegisterPayload): Promise<Regi
   let 家庭ID: string;
   let isNewHousehold = false;
   if (payload.lookup) {
-    const found = await findHousehold(payload.lookup.phone, payload.lookup.name);
+    const found = await findHousehold(payload.lookup.phone);
     if (!found) return { error: '家庭資料驗證失敗，請重新查詢' };
     家庭ID = found.家庭ID;
   } else {
