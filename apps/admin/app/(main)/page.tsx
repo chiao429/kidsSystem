@@ -4,7 +4,7 @@ import { requireSession } from '@kids/auth/next';
 import { listEvents } from '@/lib/events';
 
 export default async function HomePage() {
-  const session = requireSession({ roles: ['admin', 'manager'] });
+  const session = requireSession({ permission: 'admin' });
   let rows;
   try {
     rows = await listEvents(session);
@@ -12,7 +12,7 @@ export default async function HomePage() {
     return (
       <Alert tone="amber">
         無法讀取活動清單：{e instanceof Error ? e.message : String(e)}。
-        {session.role === 'admin' && (
+        {session.permissions.includes('accounts') && (
           <>
             {' '}請先到{' '}
             <Link href="/setup" className="underline">
@@ -28,7 +28,7 @@ export default async function HomePage() {
     <Card
       title="活動"
       actions={
-        session.role === 'admin' && (
+        session.scope === 'all' && (
           <Link href="/events/new" className={buttonClass('primary', 'sm')}>
             新增活動
           </Link>

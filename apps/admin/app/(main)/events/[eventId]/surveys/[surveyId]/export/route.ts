@@ -7,7 +7,7 @@ import { surveyResponses, surveys } from '@/lib/tables';
 export const dynamic = 'force-dynamic';
 
 export async function GET(_req: Request, { params }: { params: { eventId: string; surveyId: string } }) {
-  requireSession({ roles: ['admin', 'manager'], eventId: params.eventId });
+  requireSession({ permission: 'admin', eventId: params.eventId });
   const event = await getEvent(params.eventId);
   const survey = await surveys(event.活動ID).findById(params.surveyId);
   if (!survey) return new Response('Not found', { status: 404 });

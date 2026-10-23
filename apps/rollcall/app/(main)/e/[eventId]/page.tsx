@@ -4,7 +4,7 @@ import { requireSession } from '@kids/auth/next';
 import { getEvent, loadGroups, type GroupRef } from '@/lib/data';
 
 export default async function TeamsPage({ params }: { params: { eventId: string } }) {
-  const session = requireSession({ roles: ['admin', 'manager', 'staff'], eventId: params.eventId });
+  const session = requireSession({ permission: 'rollcall', eventId: params.eventId });
   const event = await getEvent(params.eventId);
   const { mine, allowed } = await loadGroups(event.活動ID, session, event.rules);
   const others = allowed.filter((g) => !mine.some((m) => m.分組ID === g.分組ID));

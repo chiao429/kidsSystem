@@ -9,7 +9,7 @@ import { writeLog } from './log';
 import { accounts, groupMembers, groups } from './tables';
 
 async function context(eventId: string) {
-  const session = requireSession({ roles: ['admin', 'manager'], eventId });
+  const session = requireSession({ permission: 'admin', eventId });
   return { session, event: await getEvent(eventId) };
 }
 

@@ -9,7 +9,7 @@ async function logoutAction() {
 }
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
-  const session = requireSession({ roles: ['admin', 'manager', 'staff'] });
+  const session = requireSession({ permission: 'checkin' });
   return (
     <Shell title="報到系統" brand="#2563eb" nav={[{ href: '/', label: '活動' }]} user={session.name} logoutAction={logoutAction}>
       {children}

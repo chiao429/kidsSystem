@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 const today = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' }).replace(/-/g, '');
 
 export async function GET(req: Request, { params }: { params: { eventId: string; kind: string } }) {
-  requireSession({ roles: ['admin', 'manager'], eventId: params.eventId });
+  requireSession({ permission: 'data-tools', eventId: params.eventId });
   const event = await getEvent(params.eventId);
   const all = new URL(req.url).searchParams.get('all');
   const statuses = all ? Object.values(RegistrationStatus).filter((s) => s !== '取消') : undefined;

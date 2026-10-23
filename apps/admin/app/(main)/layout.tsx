@@ -9,9 +9,11 @@ async function logoutAction() {
 }
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
-  const session = requireSession({ roles: ['admin', 'manager'] });
+  const session = requireSession({ permission: 'admin' });
   const nav = [{ href: '/', label: '活動' }, { href: '/families', label: '家庭' }];
-  if (session.role === 'admin') nav.push({ href: '/accounts', label: '帳號' }, { href: '/setup', label: '初始化' });
+  if (session.permissions.includes('accounts')) {
+    nav.push({ href: '/accounts', label: '帳號' }, { href: '/roles', label: '角色權限' }, { href: '/setup', label: '初始化' });
+  }
   return (
     <Shell title="系統管理後台" brand="#7c3aed" nav={nav} user={session.name} logoutAction={logoutAction}>
       {children}

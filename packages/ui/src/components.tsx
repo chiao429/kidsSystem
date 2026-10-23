@@ -167,6 +167,9 @@ export function Shell({
           {user && (
             <form action={logoutAction} className="ml-auto flex items-center gap-2 text-sm text-gray-600">
               <span>{user}</span>
+              <a href={withBase('/password')} className="rounded-md px-2 py-1 hover:bg-gray-100">
+                改密碼
+              </a>
               <button className="rounded-md px-2 py-1 hover:bg-gray-100">登出</button>
             </form>
           )}

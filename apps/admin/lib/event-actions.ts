@@ -37,7 +37,7 @@ function readEventForm(formData: FormData) {
 }
 
 export async function createEvent(_: FormResult, formData: FormData): Promise<FormResult> {
-  const session = requireSession({ roles: ['admin'] });
+  const session = requireSession({ permission: 'admin', allEvents: true });
   const row = readEventForm(formData);
   if (!/^[A-Za-z0-9_-]+$/.test(row.活動ID)) return { error: '活動ID 只能使用英數字、- 與 _' };
   if (!row.名稱 || !row.活動試算表) return { error: '請填寫名稱與活動試算表連結' };
@@ -55,7 +55,7 @@ export async function createEvent(_: FormResult, formData: FormData): Promise<Fo
 }
 
 export async function updateEvent(eventId: string, _: FormResult, formData: FormData): Promise<FormResult> {
-  const session = requireSession({ roles: ['admin', 'manager'], eventId });
+  const session = requireSession({ permission: 'admin', eventId });
   const { 活動ID: _id, ...changes } = readEventForm(formData);
   if (!changes.名稱 || !changes.活動試算表) return { error: '請填寫名稱與活動試算表連結' };
   await events().updateByIds([{ id: eventId, changes }]);
@@ -66,7 +66,7 @@ export async function updateEvent(eventId: string, _: FormResult, formData: Form
 }
 
 export async function initEventSheet(eventId: string) {
-  const session = requireSession({ roles: ['admin', 'manager'], eventId });
+  const session = requireSession({ permission: 'admin', eventId });
   const event = await getEvent(eventId);
   await ensureEventTables(event.活動ID, event.sheetId);
   await writeLog(event.活動ID, session, '初始化活動試算表', eventId);

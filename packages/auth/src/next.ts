@@ -1,7 +1,7 @@
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import type { Role } from '@kids/schema';
-import { authenticate } from './accounts';
+import type { Permission } from '@kids/schema';
+import { authenticate, changePassword } from './accounts';
 import { canAccessEvent, decodeSession, encodeSession, type Session } from './crypto';
 import { PATHNAME_HEADER, safeNext } from './paths';
 
@@ -30,10 +30,27 @@ function currentPath(): string {
   return headers().get(PATHNAME_HEADER) ?? '';
 }
 
-function check(opts: { roles?: Role[]; eventId?: string }): { session: Session | null; reason?: 'login' | 'role' | 'event' } {
-  const session = getSession();
+export interface AccessOptions {
+  /** 需要的系統權限 */
+  permission?: Permission;
+  /** 需要「所有活動」範圍（例如新增活動） */
+  allEvents?: boolean;
+  eventId?: string;
+}
+
+/** 判斷 session 是否有權限（不導向） */
+export function hasAccess(session: Session | null, opts: AccessOptions): boolean {
+  return !!session && !check(opts, session).reason;
+}
+
+function check(
+  opts: AccessOptions,
+  session: Session | null = getSession(),
+): { session: Session | null; reason?: 'login' | 'password' | 'role' | 'event' } {
   if (!session) return { session, reason: 'login' };
-  if (opts.roles && !opts.roles.includes(session.role)) return { session, reason: 'role' };
+  if (session.mustChangePassword) return { session, reason: 'password' };
+  if (opts.permission && !session.permissions.includes(opts.permission)) return { session, reason: 'role' };
+  if (opts.allEvents && session.scope !== 'all') return { session, reason: 'role' };
   if (opts.eventId && !canAccessEvent(session, opts.eventId)) return { session, reason: 'event' };
   return { session };
 }
@@ -41,14 +58,16 @@ function check(opts: { roles?: Role[]; eventId?: string }): { session: Session |
 /**
  * 頁面/Server Action 用：
  * - 未登入 → 本系統 /login?next=<目前路徑>
- * - 角色不符或沒有此活動權限 → 本系統 /forbidden?reason=role|event
+ * - 需要改密碼 → 本系統 /password
+ * - 沒有該系統權限或沒有此活動權限 → 本系統 /forbidden?reason=role|event
  */
-export function requireSession(opts: { roles?: Role[]; eventId?: string } = {}): Session {
+export function requireSession(opts: AccessOptions = {}): Session {
   const { session, reason } = check(opts);
   if (reason === 'login') {
     const next = safeNext(currentPath());
     redirect(next ? `/login?next=${encodeURIComponent(next)}` : '/login');
   }
+  if (reason === 'password') redirect('/password');
   if (reason) redirect(`/forbidden?reason=${reason}`);
   return session!;
 }
@@ -63,18 +82,21 @@ export class AuthError extends Error {
 }
 
 /** Route Handler / API 用：不導向，丟出 AuthError（呼叫端轉成 401/403 JSON） */
-export function requireSessionOrThrow(opts: { roles?: Role[]; eventId?: string } = {}): Session {
+export function requireSessionOrThrow(opts: AccessOptions = {}): Session {
   const { session, reason } = check(opts);
   if (reason === 'login') throw new AuthError(401, '請先登入');
+  if (reason === 'password') throw new AuthError(403, '請先修改密碼');
   if (reason === 'role') throw new AuthError(403, '此帳號沒有使用本系統的權限');
   if (reason === 'event') throw new AuthError(403, '沒有此活動的權限');
   return session!;
 }
 
-/** 登入頁：已登入且角色符合時直接前往 next（或本系統首頁） */
-export function redirectIfLoggedIn(allowedRoles: Role[], next?: string) {
+/** 登入頁：已登入且有權限時直接前往 next（或本系統首頁）；需要改密碼則前往 /password */
+export function redirectIfLoggedIn(permission: Permission, next?: string) {
   const session = getSession();
-  if (!session || !allowedRoles.includes(session.role)) return;
+  if (!session) return;
+  if (session.mustChangePassword) redirect('/password');
+  if (!session.permissions.includes(permission)) return;
   const target = safeNext(next) || `${basePath()}/`;
   redirectAbsolute(target);
 }
@@ -97,14 +119,14 @@ export interface LoginState {
 }
 
 /** 給 LoginForm 用的 Server Action 主體；表單可帶 next（登入後返回的路徑） */
-export async function loginWithForm(formData: FormData, allowedRoles: Role[], redirectTo = '/'): Promise<LoginState> {
+export async function loginWithForm(formData: FormData, permission: Permission, redirectTo = '/'): Promise<LoginState> {
   const account = String(formData.get('account') ?? '').trim();
   const password = String(formData.get('password') ?? '');
   if (!account || !password) return { error: '請輸入帳號與密碼' };
 
   const session = await authenticate(account, password);
   if (!session) return { error: '帳號或密碼錯誤' };
-  if (!allowedRoles.includes(session.role)) return { error: '此帳號沒有使用本系統的權限' };
+  if (!session.mustChangePassword && !session.permissions.includes(permission)) return { error: '此帳號沒有使用本系統的權限' };
 
   cookies().set(COOKIE, encodeSession(session, secret()), {
     httpOnly: true,
@@ -113,7 +135,21 @@ export async function loginWithForm(formData: FormData, allowedRoles: Role[], re
     path: '/',
     expires: new Date(session.exp),
   });
+  if (session.mustChangePassword) return { error: '', redirect: `${basePath()}/password` };
   return { error: '', redirect: safeNext(String(formData.get('next') ?? '')) || `${basePath()}${redirectTo}` };
+}
+
+/** 改密碼：成功後登出，請使用者以新密碼重新登入 */
+export async function changePasswordWithForm(formData: FormData): Promise<LoginState> {
+  const session = getSession();
+  if (!session) return { error: '', redirect: `${basePath()}/login` };
+  const current = String(formData.get('current') ?? '');
+  const newPassword = String(formData.get('newPassword') ?? '');
+  if (newPassword !== String(formData.get('confirm') ?? '')) return { error: '兩次輸入的新密碼不一致' };
+  const error = await changePassword(session.account, current, newPassword);
+  if (error) return { error };
+  cookies().set(COOKIE, '', { path: '/', maxAge: 0 });
+  redirect('/login?changed=1');
 }
 
 export function logout(): never {

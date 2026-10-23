@@ -4,7 +4,7 @@ import { requireSession } from '@kids/auth/next';
 import { listEvents } from '@/lib/events';
 
 export default async function HomePage() {
-  const session = requireSession({ roles: ['admin', 'manager'] });
+  const session = requireSession({ permission: 'data-tools' });
   const rows = await listEvents(session);
   return (
     <Card title="選擇活動">

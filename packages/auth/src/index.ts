@@ -1,2 +1,2 @@
 export * from './crypto';
-export { authenticate } from './accounts';
+export { authenticate, changePassword, defaultPasswordFields, normalizeAccount } from './accounts';

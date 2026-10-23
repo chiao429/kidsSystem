@@ -21,7 +21,7 @@ function diff<T extends string>(fields: readonly T[], formData: FormData, curren
 }
 
 export async function saveHousehold(家庭ID: string, _: FormResult, formData: FormData): Promise<FormResult> {
-  requireSession({ roles: ['admin', 'manager'] });
+  requireSession({ permission: 'admin' });
   const current = await households().findById(家庭ID, { fresh: true });
   if (!current) return { error: '找不到此家庭' };
   const changes = diff(HOUSEHOLD_FIELDS, formData, current);
@@ -32,7 +32,7 @@ export async function saveHousehold(家庭ID: string, _: FormResult, formData: F
 }
 
 export async function saveMember(成員ID: string, _: FormResult, formData: FormData): Promise<FormResult> {
-  requireSession({ roles: ['admin', 'manager'] });
+  requireSession({ permission: 'admin' });
   const current = await members().findById(成員ID, { fresh: true });
   if (!current) return { error: '找不到此成員' };
   const changes = diff(MEMBER_FIELDS, formData, current);

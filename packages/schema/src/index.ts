@@ -5,3 +5,4 @@ export * from './grades';
 export * from './rules';
 export * from './survey';
 export * from './groups';
+export * from './roles';

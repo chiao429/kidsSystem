@@ -9,7 +9,7 @@ async function logoutAction() {
 }
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
-  const session = requireSession({ roles: ['admin', 'manager'] });
+  const session = requireSession({ permission: 'data-tools' });
   return (
     <Shell title="資料整理" brand="#0d9488" nav={[{ href: '/', label: '活動' }]} user={session.name} logoutAction={logoutAction}>
       {children}

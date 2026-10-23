@@ -6,7 +6,7 @@ import { DATASETS, buildDataset, type DatasetKey } from '@/lib/reports';
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request, { params }: { params: { eventId: string } }) {
-  requireSession({ roles: ['admin', 'manager'], eventId: params.eventId });
+  requireSession({ permission: 'admin', eventId: params.eventId });
   const url = new URL(req.url);
   const key = url.searchParams.get('dataset') as DatasetKey;
   const def = DATASETS[key];

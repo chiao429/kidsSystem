@@ -77,15 +77,28 @@ export const MemberTable = defineTable({
   sheetEditable: ['姓名', '性別', '生日', '年級', '學校', '類型', '特殊需求'],
 });
 
+/**
+ * 帳號：新帳號以手機號碼為帳號、預設密碼為手機號碼，第一次登入需改密碼（需改密碼 = Y）。
+ * 角色：角色表的 角色ID。小隊：@deprecated 舊資料相容（以名稱比對分組）；新的負責人請在分組成員指派
+ */
 export const AccountTable = defineTable({
   tab: '帳號',
   key: 'accounts',
   scope: 'master',
   idColumn: '帳號',
-  /** 小隊：@deprecated 舊資料相容（以名稱比對分組）；新的負責人請在分組成員指派 */
-  headers: ['帳號', '名稱', '密碼雜湊', '角色', '可管理活動', '小隊', '啟用'],
+  headers: ['帳號', '名稱', '密碼雜湊', '角色', '可管理活動', '小隊', '啟用', '需改密碼'],
   owner: 'admin',
   mirrorExclude: ['密碼雜湊'],
+});
+
+/** 角色與權限：權限為可使用的系統（逗號分隔），範圍見 RoleScope */
+export const RoleTable = defineTable({
+  tab: '角色',
+  key: 'roles',
+  scope: 'master',
+  idColumn: '角色ID',
+  headers: ['角色ID', '名稱', '權限', '範圍', '說明'],
+  owner: 'admin',
 });
 
 export const EventTable = defineTable({
@@ -208,7 +221,7 @@ export const LogTable = defineTable({
   owner: 'admin', // 例外：所有系統都可 append
 });
 
-export const MASTER_TABLES = [HouseholdTable, MemberTable, AccountTable, EventTable] as const;
+export const MASTER_TABLES = [HouseholdTable, MemberTable, AccountTable, RoleTable, EventTable] as const;
 export const EVENT_TABLES = [
   RegistrationTable, CheckInTable, GroupTable, GroupMemberTable, ScheduleTable,
   AttendanceTable, SurveyTable, SurveyResponseTable, LogTable,

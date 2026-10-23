@@ -6,7 +6,7 @@ import { getEvent, loadGroups } from '@/lib/data';
 import { loadStats } from '@/lib/stats';
 
 export default async function StatsPage({ params }: { params: { eventId: string } }) {
-  const session = requireSession({ roles: ['admin', 'manager', 'staff'], eventId: params.eventId });
+  const session = requireSession({ permission: 'rollcall', eventId: params.eventId });
   const event = await getEvent(params.eventId);
   const { allowed } = await loadGroups(event.活動ID, session, event.rules);
   const { cols, teamRows, totals } = await loadStats(event.活動ID, allowed);

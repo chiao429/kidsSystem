@@ -10,7 +10,7 @@ import { groupMembers, registrations } from '@/lib/tables';
 
 async function updateStatus(eventId: string, formData: FormData) {
   'use server';
-  const session = requireSession({ roles: ['admin', 'manager'], eventId });
+  const session = requireSession({ permission: 'admin', eventId });
   const event = await getEvent(eventId);
   const ids = formData.getAll('ids').map(String);
   const 狀態 = String(formData.get('status'));
@@ -22,7 +22,7 @@ async function updateStatus(eventId: string, formData: FormData) {
 
 async function updateNote(eventId: string, 報名ID: string, formData: FormData) {
   'use server';
-  const session = requireSession({ roles: ['admin', 'manager'], eventId });
+  const session = requireSession({ permission: 'admin', eventId });
   const event = await getEvent(eventId);
   const 備註 = String(formData.get('note') ?? '').trim().slice(0, 500);
   await registrations(event.活動ID).updateByIds([{ id: 報名ID, changes: { 備註 } }]);
@@ -33,7 +33,7 @@ async function updateNote(eventId: string, 報名ID: string, formData: FormData)
 /** 調整選課：依勾選結果新增或刪除課程分組成員 */
 async function updateCourses(eventId: string, 報名ID: string, formData: FormData) {
   'use server';
-  const session = requireSession({ roles: ['admin', 'manager'], eventId });
+  const session = requireSession({ permission: 'admin', eventId });
   const event = await getEvent(eventId);
   const reg = (await registrations(event.活動ID).all({ fresh: true })).find((r) => r.報名ID === 報名ID);
   if (!reg) return;

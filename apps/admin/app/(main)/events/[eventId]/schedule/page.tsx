@@ -9,7 +9,7 @@ import { groups, schedules } from '@/lib/tables';
 
 async function addSlot(eventId: string, formData: FormData) {
   'use server';
-  const session = requireSession({ roles: ['admin', 'manager'], eventId });
+  const session = requireSession({ permission: 'admin', eventId });
   const event = await getEvent(eventId);
   const s = (k: string) => String(formData.get(k) ?? '').trim();
   // 對象：「type:小隊」=全部小隊、「type:課程」=全部課程、其餘為分組ID；不勾選＝全部
@@ -27,7 +27,7 @@ async function addSlot(eventId: string, formData: FormData) {
 /** 匯入舊版 groupSchedule.json：{ "小隊": [{ "area", "time": "9:41-9:56", "place" }] } */
 async function importJson(eventId: string, _: FormResult, formData: FormData): Promise<FormResult> {
   'use server';
-  const session = requireSession({ roles: ['admin', 'manager'], eventId });
+  const session = requireSession({ permission: 'admin', eventId });
   const event = await getEvent(eventId);
   const date = String(formData.get('date') ?? '').trim();
   let data: Record<string, { area?: string; time?: string; place?: string; content?: string }[]>;
@@ -58,7 +58,7 @@ async function importJson(eventId: string, _: FormResult, formData: FormData): P
 
 async function updateSlot(eventId: string, id: string, formData: FormData) {
   'use server';
-  requireSession({ roles: ['admin', 'manager'], eventId });
+  requireSession({ permission: 'admin', eventId });
   const event = await getEvent(eventId);
   const s = (k: string) => String(formData.get(k) ?? '').trim();
   await schedules(event.活動ID).updateByIds([
@@ -69,7 +69,7 @@ async function updateSlot(eventId: string, id: string, formData: FormData) {
 
 async function deleteSlot(eventId: string, id: string) {
   'use server';
-  const session = requireSession({ roles: ['admin', 'manager'], eventId });
+  const session = requireSession({ permission: 'admin', eventId });
   const event = await getEvent(eventId);
   await schedules(event.活動ID).deleteByIds([id]);
   await writeLog(event.活動ID, session, '刪除時段', id);

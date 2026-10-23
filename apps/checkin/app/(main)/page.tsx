@@ -4,7 +4,7 @@ import { requireSession } from '@kids/auth/next';
 import { listEvents } from '@/lib/events';
 
 export default async function HomePage() {
-  const session = requireSession({ roles: ['admin', 'manager', 'staff'] });
+  const session = requireSession({ permission: 'checkin' });
   const rows = (await listEvents(session)).filter((e) => e.狀態 !== '已結束');
   return (
     <Card title="選擇活動">

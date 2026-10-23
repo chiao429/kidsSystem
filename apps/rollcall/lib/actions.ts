@@ -8,7 +8,7 @@ import { attendance, logs } from './tables';
 const STATUSES = Object.values(AttendanceStatus) as string[];
 
 async function allowedGroup(eventId: string, 分組ID: string) {
-  const session = requireSession({ roles: ['admin', 'manager', 'staff'], eventId });
+  const session = requireSession({ permission: 'rollcall', eventId });
   const event = await getEvent(eventId);
   const { allowed } = await loadGroups(event.活動ID, session, event.rules);
   assertGroup(allowed, 分組ID);

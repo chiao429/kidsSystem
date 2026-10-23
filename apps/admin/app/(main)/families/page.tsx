@@ -4,7 +4,7 @@ import { requireSession } from '@kids/auth/next';
 import { households, members } from '@/lib/tables';
 
 export default async function FamiliesPage({ searchParams }: { searchParams: { q?: string } }) {
-  requireSession({ roles: ['admin', 'manager'] });
+  requireSession({ permission: 'admin' });
   const q = (searchParams.q ?? '').trim();
   const [hh, mm] = await Promise.all([households().all(), members().all()]);
   const namesOf = (id: string) => mm.filter((m) => m.家庭ID === id).map((m) => m.姓名);

@@ -12,7 +12,7 @@ import { groupMembers, groups } from './tables';
 const MEMBER = GroupRole.Member;
 
 async function context(eventId: string) {
-  requireSession({ roles: ['admin', 'manager'], eventId });
+  requireSession({ permission: 'data-tools', eventId });
   return getEvent(eventId);
 }
 

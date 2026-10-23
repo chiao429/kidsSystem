@@ -9,21 +9,21 @@ import { ensureMasterTables } from '@/lib/tables';
 
 async function pushNow() {
   'use server';
-  requireSession({ roles: ['admin'] });
+  requireSession({ permission: 'accounts' });
   await pushDirty({ maxTables: 50, timeBudgetMs: 50_000 });
   revalidatePath('/setup');
 }
 
 async function regenerate() {
   'use server';
-  requireSession({ roles: ['admin'] });
+  requireSession({ permission: 'accounts' });
   await resetSync();
   revalidatePath('/setup');
 }
 
 async function markResolved(id: string) {
   'use server';
-  requireSession({ roles: ['admin'] });
+  requireSession({ permission: 'accounts' });
   await resolveConflict(id);
   revalidatePath('/setup');
 }
@@ -101,13 +101,13 @@ async function SyncCard() {
 
 async function initMaster() {
   'use server';
-  requireSession({ roles: ['admin'] });
+  requireSession({ permission: 'accounts' });
   await ensureMasterTables();
   revalidatePath('/setup');
 }
 
 export default function SetupPage() {
-  requireSession({ roles: ['admin'] });
+  requireSession({ permission: 'accounts' });
   const configured = !!process.env.GOOGLE_MASTER_SHEET_ID;
   return (
     <>

@@ -1,19 +1,22 @@
-import type { Role } from '@kids/schema';
+import { Alert } from '@kids/ui';
 import { LoginForm } from '@kids/ui/client';
 import { loginWithForm, redirectIfLoggedIn, safeNext, type LoginState } from '@kids/auth/next';
 
-const ROLES: Role[] = ['admin', 'manager'];
-
 async function login(_: LoginState, formData: FormData) {
   'use server';
-  return loginWithForm(formData, ROLES);
+  return loginWithForm(formData, 'data-tools');
 }
 
-export default function LoginPage({ searchParams }: { searchParams: { next?: string } }) {
+export default function LoginPage({ searchParams }: { searchParams: { next?: string; changed?: string } }) {
   const next = safeNext(searchParams.next);
-  redirectIfLoggedIn(ROLES, next);
+  redirectIfLoggedIn('data-tools', next);
   return (
     <div style={{ ['--brand' as string]: '#0d9488' }} className="px-4">
+      {searchParams.changed && (
+        <div className="mx-auto mt-6 max-w-sm">
+          <Alert tone="green">密碼已更新，請用新密碼重新登入</Alert>
+        </div>
+      )}
       <LoginForm title="資料整理" action={login} next={next} />
       <p className="mt-4 text-center text-sm">
         <a href="/staff" className="text-gray-500 underline">

@@ -3,7 +3,7 @@ import { requireSession } from '@kids/auth/next';
 import { getEvent } from '@/lib/events';
 
 export default async function EventLayout({ children, params }: { children: React.ReactNode; params: { eventId: string } }) {
-  requireSession({ roles: ['admin', 'manager'], eventId: params.eventId });
+  requireSession({ permission: 'data-tools', eventId: params.eventId });
   const event = await getEvent(params.eventId);
   const base = `/e/${params.eventId}`;
   return (

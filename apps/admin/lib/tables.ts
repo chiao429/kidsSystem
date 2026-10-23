@@ -2,7 +2,7 @@ import 'server-only';
 import { SheetTable, dataBackend, ensureSheetTabs } from '@kids/sheets-core';
 import {
   MASTER_TABLES, EVENT_TABLES,
-  HouseholdTable, MemberTable, AccountTable, EventTable,
+  HouseholdTable, MemberTable, AccountTable, RoleTable, EventTable,
   RegistrationTable, CheckInTable, GroupTable, GroupMemberTable, ScheduleTable,
   AttendanceTable, SurveyTable, SurveyResponseTable, LogTable,
 } from '@kids/schema';
@@ -14,6 +14,7 @@ const A = 'admin' as const;
 export const households = () => new SheetTable('master', HouseholdTable, A);
 export const members = () => new SheetTable('master', MemberTable, A);
 export const accounts = () => new SheetTable('master', AccountTable, A);
+export const roles = () => new SheetTable('master', RoleTable, A);
 export const events = () => new SheetTable('master', EventTable, A);
 export const registrations = (eventId: string) => new SheetTable(eventId, RegistrationTable, A);
 export const checkIns = (eventId: string) => new SheetTable(eventId, CheckInTable, A);

@@ -19,7 +19,7 @@ function readForm(formData: FormData) {
 }
 
 export async function saveSurvey(eventId: string, surveyId: string | null, _: FormResult, formData: FormData): Promise<FormResult> {
-  const session = requireSession({ roles: ['admin', 'manager'], eventId });
+  const session = requireSession({ permission: 'admin', eventId });
   const event = await getEvent(eventId);
   const { row, questions } = readForm(formData);
   if (!row.標題) return { error: '請填寫問卷標題' };

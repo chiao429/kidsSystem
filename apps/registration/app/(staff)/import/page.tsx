@@ -10,7 +10,7 @@ import { events } from '@/lib/tables';
 async function runImport(_: FormResult, formData: FormData): Promise<FormResult> {
   'use server';
   const eventId = String(formData.get('eventId') ?? '');
-  requireSession({ roles: ['admin', 'manager'], eventId });
+  requireSession({ permission: 'import', eventId });
   const event = await getEvent(eventId);
   if (!event) return { error: '找不到活動' };
 
@@ -37,7 +37,7 @@ async function runImport(_: FormResult, formData: FormData): Promise<FormResult>
 }
 
 export default async function ImportPage() {
-  const session = requireSession({ roles: ['admin', 'manager'] });
+  const session = requireSession({ permission: 'import' });
   const list = (await events().all()).filter((e) => canAccessEvent(session, e.活動ID));
   return (
     <Card title="匯入舊報名資料">

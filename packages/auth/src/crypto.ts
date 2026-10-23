@@ -1,10 +1,17 @@
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
-import type { Role } from '@kids/schema';
+import type { Permission, RoleScope } from '@kids/schema';
 
 export interface Session {
   account: string;
   name: string;
-  role: Role;
+  /** 角色ID */
+  role: string;
+  roleName: string;
+  /** 可使用的系統（登入當下的角色設定快照） */
+  permissions: Permission[];
+  scope: RoleScope;
+  /** 第一次登入或密碼被重設：必須先改密碼 */
+  mustChangePassword: boolean;
   /** 可管理的活動ID；['*'] 表示全部 */
   events: string[];
   /** 負責的小隊（點名用），可空白 */
@@ -48,12 +55,13 @@ export function decodeSession(token: string | undefined, secret: string): Sessio
   }
   try {
     const session = JSON.parse(Buffer.from(payload, 'base64url').toString()) as Session;
-    return session.exp > Date.now() ? session : null;
+    // 舊版 session（沒有權限資訊）視為未登入，重新登入即可
+    return session.exp > Date.now() && Array.isArray(session.permissions) ? session : null;
   } catch {
     return null;
   }
 }
 
 export function canAccessEvent(session: Session, eventId: string): boolean {
-  return session.role === 'admin' || session.events.includes('*') || session.events.includes(eventId);
+  return session.scope === 'all' || session.events.includes('*') || session.events.includes(eventId);
 }

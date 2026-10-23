@@ -84,3 +84,38 @@ export function ActionForm({
     </form>
   );
 }
+
+/** 修改密碼（第一次登入或密碼被重設時必填）；成功後由瀏覽器導回登入頁 */
+export function PasswordForm({
+  name,
+  required,
+  action,
+}: {
+  name: string;
+  required: boolean;
+  action: (state: { error: string; redirect?: string }, formData: FormData) => Promise<{ error: string; redirect?: string }>;
+}) {
+  const [state, formAction] = useFormState(action, { error: '' });
+  useEffect(() => {
+    if (state.redirect) window.location.assign(state.redirect);
+  }, [state.redirect]);
+  return (
+    <form action={formAction} className="mx-auto mt-16 max-w-sm space-y-4 rounded-xl border bg-white p-6 shadow-sm">
+      <h1 className="text-xl font-bold">設定新密碼</h1>
+      <p className="text-sm text-gray-600">
+        {name}，{required ? '第一次登入（或密碼已被重設）請先設定新密碼，完成後請用新密碼重新登入。' : '設定新密碼後需要重新登入。'}
+      </p>
+      <Field label={required ? '目前密碼（預設為手機號碼）' : '目前密碼'}>
+        <Input name="current" type="password" autoComplete="current-password" required />
+      </Field>
+      <Field label="新密碼（至少 8 碼）">
+        <Input name="newPassword" type="password" autoComplete="new-password" minLength={8} required />
+      </Field>
+      <Field label="再輸入一次新密碼">
+        <Input name="confirm" type="password" autoComplete="new-password" minLength={8} required />
+      </Field>
+      {state.error && <Alert>{state.error}</Alert>}
+      <SubmitButton className="w-full">更新密碼</SubmitButton>
+    </form>
+  );
+}

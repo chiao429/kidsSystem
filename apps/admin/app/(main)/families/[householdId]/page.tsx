@@ -8,7 +8,7 @@ import { saveHousehold, saveMember } from '@/lib/family-actions';
 import { households, members } from '@/lib/tables';
 
 export default async function FamilyPage({ params }: { params: { householdId: string } }) {
-  requireSession({ roles: ['admin', 'manager'] });
+  requireSession({ permission: 'admin' });
   const h = await households().findById(params.householdId, { fresh: true });
   if (!h) notFound();
   const mm = (await members().all({ fresh: true })).filter((m) => m.家庭ID === h.家庭ID);

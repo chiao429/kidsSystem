@@ -11,7 +11,7 @@ export default async function RollCallPage({
   params: { eventId: string; team: string };
   searchParams: { slot?: string };
 }) {
-  const session = requireSession({ roles: ['admin', 'manager', 'staff'], eventId: params.eventId });
+  const session = requireSession({ permission: 'rollcall', eventId: params.eventId });
   const team = decodeURIComponent(params.team);
   const event = await getEvent(params.eventId);
   const { allowed, byId } = await loadGroups(event.活動ID, session, event.rules);

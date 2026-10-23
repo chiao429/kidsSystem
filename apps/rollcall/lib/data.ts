@@ -50,7 +50,7 @@ export async function loadGroups(eventId: string, session: Session, rules: Event
   const legacy = splitList(session.team);
   const mineIds = new Set([...leaderGroupIds(gm, session.account), ...all.filter((g) => legacy.includes(g.名稱)).map((g) => g.分組ID)]);
   const mine = all.filter((g) => mineIds.has(g.分組ID));
-  const allowed = session.role === 'staff' ? mine : all;
+  const allowed = session.scope === 'own' ? mine : all;
   return { all, mine, allowed, byId: new Map(all.map((g) => [g.分組ID, g])) };
 }
 

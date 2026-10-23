@@ -15,7 +15,7 @@ async function defaultEventId(): Promise<string> {
 }
 
 export default async function NewEventPage() {
-  requireSession({ roles: ['admin'] });
+  requireSession({ permission: 'admin', allEvents: true });
   return (
     <Card title="新增活動">
       <EventForm action={createEvent} defaultId={await defaultEventId()} />

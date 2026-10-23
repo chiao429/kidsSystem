@@ -14,10 +14,9 @@ import { getEvent } from './events';
 import { checkIns, groupMembers, logs, members, registrations } from './tables';
 import type { ActionResult, Board, SlotInfo } from './types';
 
-const ROLES = ['admin', 'manager', 'staff'] as const;
 
 function session(eventId: string) {
-  return requireSession({ roles: [...ROLES], eventId });
+  return requireSession({ permission: 'checkin', eventId });
 }
 
 export async function fetchBoard(eventId: string, course = ''): Promise<Board> {

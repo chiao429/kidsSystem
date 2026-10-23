@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 const csvCell = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
 
 export async function GET(_req: Request, { params }: { params: { eventId: string } }) {
-  const session = requireSession({ roles: ['admin', 'manager', 'staff'], eventId: params.eventId });
+  const session = requireSession({ permission: 'rollcall', eventId: params.eventId });
   const event = await getEvent(params.eventId);
   const { allowed, byId } = await loadGroups(event.活動ID, session, event.rules);
   const allowedIds = new Set(allowed.map((g) => g.分組ID));
