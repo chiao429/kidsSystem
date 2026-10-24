@@ -1,0 +1,17 @@
+/* Jodit 編輯區：Tailwind preflight 會清掉清單、標題樣式，這裡補回與家長頁（richTextClass）相同的外觀 */
+.kids-rich-text { padding: 0.75rem 1rem !important; font-size: 0.875rem; line-height: 1.5rem; color: #374151; }
+.kids-rich-text p { margin: 0.25rem 0; }
+.kids-rich-text h2 { margin: 0.75rem 0 0.25rem; font-size: 1rem; font-weight: 700; color: #111827; }
+.kids-rich-text h3 { margin: 0.5rem 0 0.25rem; font-weight: 600; color: #111827; }
+.kids-rich-text ul { list-style: disc; padding-left: 1.25rem; }
+.kids-rich-text ol { list-style: decimal; padding-left: 1.25rem; }
+.kids-rich-text li { margin: 0.125rem 0; }
+.kids-rich-text a { color: #315bc7; text-decoration: underline; }
+.kids-rich-text blockquote { border-left: 4px solid #e5e7eb; padding-left: 0.75rem; color: #4b5563; }
+.kids-rich-text hr { margin: 0.75rem 0; border-top: 1px solid #d1d5db; }
+.kids-rich-text img { display: inline-block; max-width: 100%; height: auto; }
+.kids-rich-text table { margin: 0.5rem 0; border-collapse: collapse; }
+.kids-rich-text th,
+.kids-rich-text td { min-width: 4rem; border: 1px solid #d1d5db; padding: 0.25rem 0.5rem; vertical-align: top; }
+.kids-rich-text th { background: #f9fafb; text-align: left; font-weight: 600; }
+.kids-rich-text-wrap .jodit-container { border: 0 !important; }
