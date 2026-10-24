@@ -1,5 +1,5 @@
 import 'server-only';
-import { EventStatus, parseRules, type EventTable, type RowOf } from '@kids/schema';
+import { EventStatus, isArchivedEvent, parseRules, type EventTable, type RowOf } from '@kids/schema';
 import { extractSheetIdFromUrl } from '@kids/sheets-core';
 import { events } from './tables';
 
@@ -29,7 +29,7 @@ export async function listOpenEvents() {
 
 export async function getEvent(eventId: string) {
   const row = await events().findById(eventId);
-  if (!row) return null;
+  if (!row || isArchivedEvent(row)) return null;
   return { ...row, sheetId: extractSheetIdFromUrl(row.活動試算表), rules: parseRules(row.報名規則) };
 }
 

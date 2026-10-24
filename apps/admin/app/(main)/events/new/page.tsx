@@ -2,6 +2,7 @@ import { Card } from '@kids/ui';
 import { requireSession } from '@kids/auth/next';
 import { EventForm } from '@/components/EventForm';
 import { createEvent } from '@/lib/event-actions';
+import { isSheetRequired } from '@/lib/events';
 import { events } from '@/lib/tables';
 
 /** kids＋台北時間今天日期（例如 kids10-09）；當天已有同名活動時加上 -2、-3… */
@@ -18,7 +19,7 @@ export default async function NewEventPage() {
   requireSession({ permission: 'admin', allEvents: true });
   return (
     <Card title="新增活動">
-      <EventForm action={createEvent} defaultId={await defaultEventId()} />
+      <EventForm action={createEvent} defaultId={await defaultEventId()} sheetRequired={isSheetRequired()} />
     </Card>
   );
 }

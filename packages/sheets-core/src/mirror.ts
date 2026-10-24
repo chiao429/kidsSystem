@@ -359,7 +359,7 @@ export async function applySheetEdit(edit: SheetEdit): Promise<SheetEditResult> 
 
 /** Apps Script 需要安裝觸發的試算表 */
 export async function syncTargets(): Promise<{ master: string; events: { eventId: string; spreadsheetId: string }[] }> {
-  const events = await (await collectionOf(EventTable)).find({ _scope: 'master', _deleted: false, 狀態: { $ne: '已結束' } }).toArray();
+  const events = await (await collectionOf(EventTable)).find({ _scope: 'master', _deleted: false, 狀態: { $nin: ['已結束', '已封存'] } }).toArray();
   return {
     master: process.env.GOOGLE_MASTER_SHEET_ID ?? '',
     events: events

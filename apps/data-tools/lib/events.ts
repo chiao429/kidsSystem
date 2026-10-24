@@ -1,11 +1,11 @@
 import 'server-only';
 import { canAccessEvent, type Session } from '@kids/auth';
-import { parseRules } from '@kids/schema';
+import { parseRules, isArchivedEvent } from '@kids/schema';
 import { extractSheetIdFromUrl } from '@kids/sheets-core';
 import { events } from './tables';
 
 export async function listEvents(session: Session) {
-  return (await events().all()).filter((e) => canAccessEvent(session, e.活動ID));
+  return (await events().all()).filter((e) => canAccessEvent(session, e.活動ID) && !isArchivedEvent(e));
 }
 
 export async function getEvent(eventId: string) {

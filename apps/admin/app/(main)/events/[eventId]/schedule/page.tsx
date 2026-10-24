@@ -115,7 +115,7 @@ export default async function SchedulePage({ params }: { params: { eventId: stri
                   <input type="checkbox" name="target" value={`type:${type}`} /> 全部{type}
                 </label>
                 {list.length === 0 ? (
-                  <span className="text-gray-500">{type === '課程' ? '尚未建立課程（到「分組」頁新增）' : '尚未分隊（由資料整理系統產生小隊後即可選擇）'}</span>
+                  <span className="text-gray-500">{type === '課程' ? '尚未建立課程（到「課程」頁新增）' : '尚未分隊（由資料整理系統產生小隊後即可選擇）'}</span>
                 ) : (
                   list.map((g) => (
                     <label key={g.分組ID} className="flex items-center gap-1">

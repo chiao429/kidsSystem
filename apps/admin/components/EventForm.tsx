@@ -1,80 +1,64 @@
-import { EventStatus, EventVersion, GRADE_OPTIONS, GROUP_TYPES, type EventRules } from '@kids/schema';
-import { Field, Input, Select, Textarea } from '@kids/ui';
+import { EventStatus, GRADE_OPTIONS, GROUP_TYPES, type EventRules } from '@kids/schema';
+import { Field, Input, Select } from '@kids/ui';
 import { ActionForm, SubmitButton, type FormResult } from '@kids/ui/client';
+import { RichTextEditor } from '@kids/ui/rich-text-editor';
 import type { EventRow } from '@/lib/events';
 
-function toLocal(v: string | undefined) {
-  // Sheet 內存 "2026-10-09T09:00" 形式，直接給 datetime-local
-  return v ?? '';
-}
+/** 封存只能從活動清單操作，不出現在狀態選單 */
+const STATUS_OPTIONS = Object.values(EventStatus).filter((s) => s !== EventStatus.Archived);
 
+/**
+ * 活動設定：只放必要欄位。活動時間、地點、報到／繳費時間等資訊改寫在「活動說明」裡；
+ * 這些舊欄位不在表單上，更新時會保留原值（見 event-actions 的 readEventForm）。
+ */
 export function EventForm({
   action,
   event,
   rules = {},
   defaultId,
+  sheetRequired,
 }: {
   action: (state: FormResult, formData: FormData) => Promise<FormResult>;
   event?: EventRow;
   rules?: EventRules;
   /** 新增時預設的活動ID */
   defaultId?: string;
+  /** 純 Google Sheets 模式時活動資料就在試算表裡，必須填寫 */
+  sheetRequired: boolean;
 }) {
-  const groupTypes = rules.groupTypes ?? (rules.grouping === 'course' ? ['課程'] : ['小隊']);
+  // 新活動預設只用課程；既有活動依原本的設定
+  const groupTypes = event ? (rules.groupTypes ?? (rules.grouping === 'course' ? ['課程'] : ['小隊'])) : ['課程'];
   return (
-    <ActionForm action={action} className="grid gap-4 sm:grid-cols-2">
-      <Field label="活動ID" hint="英數字，建立後不可修改；預設 kids＋今天日期" required>
-        <Input name="id" defaultValue={event?.活動ID ?? defaultId} readOnly={!!event} pattern="[A-Za-z0-9_\-]+" required />
-      </Field>
-      <Field label="名稱" required>
-        <Input name="name" defaultValue={event?.名稱} required />
-      </Field>
-      <Field label="版本">
-        <Select name="version" defaultValue={event?.版本 || EventVersion.Kids}>
-          {Object.values(EventVersion).map((v) => (
-            <option key={v}>{v}</option>
-          ))}
-        </Select>
-      </Field>
-      <Field label="狀態">
-        <Select name="status" defaultValue={event?.狀態 || EventStatus.Draft}>
-          {Object.values(EventStatus).map((v) => (
-            <option key={v}>{v}</option>
-          ))}
-        </Select>
-      </Field>
-      <div className="sm:col-span-2">
-        <Field label="活動試算表連結" hint="建立一份空白試算表並共用給 service account，貼上網址" required>
-          <Input name="sheet" defaultValue={event?.活動試算表} required />
+    <ActionForm action={action} className="space-y-6">
+      <section className="grid gap-4 sm:grid-cols-2">
+        <div className="sm:col-span-2">
+          <Field label="活動名稱" required>
+            <Input name="name" defaultValue={event?.名稱} required />
+          </Field>
+        </div>
+        <Field label="開始日期" required>
+          <Input type="date" name="startDate" defaultValue={event?.開始日期} required />
         </Field>
-      </div>
-      <Field label="開始日期">
-        <Input type="date" name="startDate" defaultValue={event?.開始日期} />
-      </Field>
-      <Field label="結束日期">
-        <Input type="date" name="endDate" defaultValue={event?.結束日期} />
-      </Field>
-      <Field label="活動時間">
-        <Input name="eventTime" defaultValue={event?.活動時間} placeholder="09:00–16:00" />
-      </Field>
-      <Field label="地點">
-        <Input name="venue" defaultValue={event?.地點} />
-      </Field>
-      <Field label="報到時間">
-        <Input name="checkInTime" defaultValue={event?.報到時間} />
-      </Field>
-      <Field label="繳費時間">
-        <Input name="paymentTime" defaultValue={event?.繳費時間} />
-      </Field>
-      <Field label="報名開放">
-        <Input type="datetime-local" name="regOpen" defaultValue={toLocal(event?.報名開放)} />
-      </Field>
-      <Field label="報名截止">
-        <Input type="datetime-local" name="regClose" defaultValue={toLocal(event?.報名截止)} />
-      </Field>
+        <Field label="結束日期" hint="一天的活動可以留空">
+          <Input type="date" name="endDate" defaultValue={event?.結束日期} />
+        </Field>
+        <Field label="狀態" hint="「開放報名」時家長才看得到報名按鈕">
+          <Select name="status" defaultValue={event?.狀態 || EventStatus.Draft}>
+            {STATUS_OPTIONS.map((v) => (
+              <option key={v}>{v}</option>
+            ))}
+          </Select>
+        </Field>
+      </section>
 
-      <fieldset className="grid gap-4 rounded-lg border border-gray-200 p-4 sm:col-span-2 sm:grid-cols-2">
-        <legend className="px-1 text-sm font-semibold text-gray-700">報名規則</legend>
+      <fieldset className="grid gap-4 rounded-2xl border border-gray-200 p-4 sm:grid-cols-2">
+        <legend className="px-1 text-sm font-semibold text-gray-700">報名</legend>
+        <Field label="報名開放" hint="留空表示狀態改為開放報名後立即開放">
+          <Input type="datetime-local" name="regOpen" defaultValue={event?.報名開放} />
+        </Field>
+        <Field label="報名截止">
+          <Input type="datetime-local" name="regClose" defaultValue={event?.報名截止} />
+        </Field>
         <Field label="最低年級">
           <Select name="minGrade" defaultValue={rules.minGrade ?? ''}>
             <option value="">不限</option>
@@ -91,27 +75,15 @@ export function EventForm({
             ))}
           </Select>
         </Field>
-        <Field label="名額" hint="0 表示不限；額滿後轉備取">
-          <Input type="number" min={0} name="capacity" defaultValue={rules.capacity ?? 0} />
-        </Field>
-        <Field label="每位兒童最多選課數" hint="0 表示不限；例如填 1 即只能選一門">
+        <Field label="每位兒童最多選課數" hint="0 表示不限；填 1 即只能選一門">
           <Input type="number" min={0} name="maxCoursesPerMember" defaultValue={rules.maxCoursesPerMember ?? 0} />
         </Field>
-        <Field label="啟用的分組類型" hint="可同時啟用；課程請在活動的「分組」頁建立">
-          <div className="flex gap-4 pt-2 text-sm">
-            {GROUP_TYPES.map((t) => (
-              <label key={t} className="flex items-center gap-1.5">
-                <input type="checkbox" name="groupTypes" value={t} defaultChecked={groupTypes.includes(t)} /> {t}
-              </label>
-            ))}
-          </div>
+        <Field label="活動總名額" hint="0 表示不限；額滿後轉備取">
+          <Input type="number" min={0} name="capacity" defaultValue={rules.capacity ?? 0} />
         </Field>
-        <div className="space-y-2 pt-6 text-sm">
+        <div className="space-y-2 text-sm sm:col-span-2">
           <label className="flex items-center gap-2">
-            <input type="checkbox" name="autoAccept" defaultChecked={rules.autoAccept ?? true} /> 自動正取（否則為待審核）
-          </label>
-          <label className="flex items-center gap-2">
-            <input type="checkbox" name="existingOnly" defaultChecked={rules.existingOnly ?? false} /> 只開放已有資料的家庭報名
+            <input type="checkbox" name="autoAccept" defaultChecked={rules.autoAccept ?? true} /> 自動正取（不勾選則為待審核）
           </label>
           <label className="flex items-center gap-2">
             <input type="checkbox" name="allowOnSiteCourseRegistration" defaultChecked={rules.allowOnSiteCourseRegistration ?? true} /> 允許現場報名課程
@@ -119,25 +91,40 @@ export function EventForm({
         </div>
       </fieldset>
 
-      <div className="sm:col-span-2">
-        <Field label="活動說明">
-          <Textarea name="description" rows={3} defaultValue={event?.活動說明} />
-        </Field>
-      </div>
-      <Field label="適用對象">
-        <Input name="audience" defaultValue={event?.適用對象} />
-      </Field>
-      <Field label="報名提醒">
-        <Input name="reminder" defaultValue={event?.報名提醒} />
-      </Field>
-      <div className="sm:col-span-2">
-        <Field label="備註">
-          <Textarea name="note" rows={2} defaultValue={event?.備註} />
-        </Field>
-      </div>
-      <div className="sm:col-span-2">
-        <SubmitButton>儲存</SubmitButton>
-      </div>
+      <RichTextEditor name="description" label="活動說明" hint="會顯示在家長報名頁；時間、地點、報到與繳費資訊請寫在這裡" defaultValue={event?.活動說明} />
+
+      {/* 新增活動且必須填試算表時預設展開，避免必填欄位藏在收合區塊裡無法送出 */}
+      <details open={!event && sheetRequired} className="rounded-2xl border border-gray-200 p-4 [&[open]>summary]:mb-4">
+        <summary className="cursor-pointer text-sm font-semibold text-gray-700">進階設定</summary>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="活動ID" hint={event ? '建立後不可修改' : '英數字，用在網址上；預設 kids＋今天日期'} required>
+            <Input name="id" defaultValue={event?.活動ID ?? defaultId} readOnly={!!event} pattern="[A-Za-z0-9_\-]+" required />
+          </Field>
+          <Field label="使用的分組" hint="小隊相關的分頁（小隊、時間表）只有勾選小隊時才會出現">
+            <div className="flex gap-4 pt-2 text-sm">
+              {GROUP_TYPES.map((t) => (
+                <label key={t} className="flex items-center gap-1.5">
+                  <input type="checkbox" name="groupTypes" value={t} defaultChecked={groupTypes.includes(t)} /> {t}
+                </label>
+              ))}
+            </div>
+          </Field>
+          <div className="sm:col-span-2">
+            <Field
+              label="活動試算表連結"
+              hint={sheetRequired ? '建立一份空白試算表並共用給 service account，貼上網址' : '選填：要同步到 Google Sheet 鏡像時才需要'}
+              required={sheetRequired}
+            >
+              <Input name="sheet" defaultValue={event?.活動試算表} required={sheetRequired} />
+            </Field>
+          </div>
+          <label className="flex items-center gap-2 text-sm sm:col-span-2">
+            <input type="checkbox" name="existingOnly" defaultChecked={rules.existingOnly ?? false} /> 只開放已有資料的家庭報名
+          </label>
+        </div>
+      </details>
+
+      <SubmitButton>儲存</SubmitButton>
     </ActionForm>
   );
 }

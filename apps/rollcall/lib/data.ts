@@ -1,15 +1,15 @@
 import 'server-only';
 import { canAccessEvent, type Session } from '@kids/auth';
 import {
-  CheckInStatus, GROUP_TYPES, GroupType, RegistrationStatus, groupsOfType, hasGroupType, leaderGroupIds, membersOfGroup,
-  parseRules, splitList,
+  CheckInStatus, EventStatus, GROUP_TYPES, GroupType, RegistrationStatus, groupsOfType, hasGroupType, isArchivedEvent,
+  leaderGroupIds, membersOfGroup, parseRules, splitList,
 } from '@kids/schema';
 import type { EventRules } from '@kids/schema';
 import { extractSheetIdFromUrl } from '@kids/sheets-core';
 import { attendance, checkIns, events, groupMembers, groups, registrations, schedules } from './tables';
 
 export async function listEvents(session: Session) {
-  return (await events().all()).filter((e) => canAccessEvent(session, e.活動ID) && e.狀態 !== '已結束');
+  return (await events().all()).filter((e) => canAccessEvent(session, e.活動ID) && e.狀態 !== EventStatus.Ended && !isArchivedEvent(e));
 }
 
 export async function getEvent(eventId: string) {

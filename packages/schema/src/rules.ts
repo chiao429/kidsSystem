@@ -2,6 +2,8 @@ import type { GroupType } from './groups';
 
 /** 「活動.報名規則」欄位的 JSON 格式 */
 export interface EventRules {
+  /** 封存前的活動狀態（還原時使用） */
+  statusBeforeArchive?: string;
   /** 此活動啟用的分組類型；未設定為 ['小隊'] */
   groupTypes?: GroupType[];
   /** 可報名的最低/最高年級（GRADE_OPTIONS 之一），空白表示不限 */
@@ -46,4 +48,7 @@ export function splitList(value: string | undefined | null): string[] {
     .filter(Boolean);
 }
 
-export const EventStatus = { Draft: '草稿', Open: '開放報名', Closed: '截止報名', Running: '進行中', Ended: '已結束' } as const;
+export const EventStatus = { Draft: '草稿', Open: '開放報名', Closed: '截止報名', Running: '進行中', Ended: '已結束', Archived: '已封存' } as const;
+
+/** 後台「刪除」活動＝封存：資料全部保留，但各系統的活動清單與家長端都不再顯示 */
+export const isArchivedEvent = (e: { 狀態?: string }) => e.狀態 === EventStatus.Archived;

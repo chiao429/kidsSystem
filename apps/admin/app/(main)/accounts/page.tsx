@@ -87,7 +87,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: { e
           <Field label="可管理活動" hint="活動ID，以逗號分隔；* 表示全部（範圍為「所有活動」的角色不需填）">
             <Input name="events" defaultValue={editing?.可管理活動} />
           </Field>
-          <Field label="負責小隊（舊欄位）" hint="建議改到活動的「分組」頁指派負責人；此欄以名稱比對，可留白">
+          <Field label="負責小隊（舊欄位）" hint="建議改到活動的「課程」頁指派負責人；此欄以名稱比對，可留白">
             <Input name="team" defaultValue={editing?.小隊} />
           </Field>
           <label className="flex items-center gap-2 text-sm">

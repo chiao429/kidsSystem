@@ -1,11 +1,12 @@
 import Link from 'next/link';
 import { Card, Empty } from '@kids/ui';
 import { requireSession } from '@kids/auth/next';
+import { EventStatus } from '@kids/schema';
 import { listEvents } from '@/lib/events';
 
 export default async function HomePage() {
   const session = requireSession({ permission: 'checkin' });
-  const rows = (await listEvents(session)).filter((e) => e.狀態 !== '已結束');
+  const rows = (await listEvents(session)).filter((e) => e.狀態 !== EventStatus.Ended);
   return (
     <Card title="選擇活動">
       {rows.length === 0 ? (
