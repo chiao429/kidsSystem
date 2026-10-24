@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { Alert, Button, Field, Input } from './components';
@@ -14,6 +14,36 @@ export function SubmitButton({ children, pendingText = '處理中…', ...props 
   );
 }
 
+const REMEMBER_KEY = 'kids_remember_account';
+
+function readRememberedAccount(): string {
+  try {
+    return localStorage.getItem(REMEMBER_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function writeRememberedAccount(account: string) {
+  try {
+    if (account) localStorage.setItem(REMEMBER_KEY, account);
+    else localStorage.removeItem(REMEMBER_KEY);
+  } catch {
+    // 無痕模式或封鎖儲存空間：略過
+  }
+}
+
+/** Chrome / Edge 支援 PasswordCredential；Safari、Firefox 依表單欄位自動偵測 */
+async function storeCredential(form: HTMLFormElement | null) {
+  const w = window as unknown as { PasswordCredential?: new (form: HTMLFormElement) => Credential };
+  if (!form || !w.PasswordCredential || !navigator.credentials?.store) return;
+  try {
+    await navigator.credentials.store(new w.PasswordCredential(form));
+  } catch {
+    // 使用者拒絕或瀏覽器不支援：略過
+  }
+}
+
 export function LoginForm({
   title,
   action,
@@ -25,20 +55,45 @@ export function LoginForm({
   next?: string;
 }) {
   const [state, formAction] = useFormState(action, { error: '' });
+  const formRef = useRef<HTMLFormElement>(null);
+  const accountRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const [remember, setRemember] = useState(false);
+
+  // 記住帳號：存在本機瀏覽器（各系統同網域共用），只存帳號不存密碼
+  useEffect(() => {
+    const saved = readRememberedAccount();
+    if (saved && accountRef.current) {
+      accountRef.current.value = saved;
+      setRemember(true);
+      passwordRef.current?.focus();
+    }
+  }, []);
+
   // 登入成功：由瀏覽器整頁導向（可跨系統，例如在 /checkin 登入後回到 /rollcall）
   useEffect(() => {
-    if (state.redirect) window.location.assign(state.redirect);
-  }, [state.redirect]);
+    if (!state.redirect) return;
+    const redirect = state.redirect;
+    const account = accountRef.current?.value.trim() ?? '';
+    writeRememberedAccount(remember ? account : '');
+    // 表單由 Server Action 送出、不是傳統整頁 POST，主動交給瀏覽器的密碼管理員（支援的瀏覽器才有）
+    storeCredential(formRef.current).finally(() => window.location.assign(redirect));
+  }, [state.redirect, remember]);
+
   return (
-    <form action={formAction} className="mx-auto mt-16 max-w-sm space-y-5 rounded-[22px] border border-white/80 bg-white p-6 shadow-[0_8px_24px_rgba(35,49,75,0.06)]">
+    <form ref={formRef} action={formAction} className="mx-auto mt-16 max-w-sm space-y-5 rounded-[22px] border border-white/80 bg-white p-6 shadow-[0_8px_24px_rgba(35,49,75,0.06)]">
       <h1 className="text-xl font-bold">{title}</h1>
       {next && <input type="hidden" name="next" value={next} />}
       <Field label="帳號">
-        <Input name="account" autoComplete="username" required />
+        <Input ref={accountRef} id="account" name="account" autoComplete="username" autoCapitalize="none" spellCheck={false} required />
       </Field>
       <Field label="密碼">
-        <Input name="password" type="password" autoComplete="current-password" required />
+        <Input ref={passwordRef} id="password" name="password" type="password" autoComplete="current-password" required />
       </Field>
+      <label className="flex items-center gap-2 text-sm text-gray-600">
+        <input type="checkbox" name="rememberAccount" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+        記住帳號
+      </label>
       {state.error && <Alert>{state.error}</Alert>}
       <SubmitButton className="w-full">登入</SubmitButton>
     </form>
