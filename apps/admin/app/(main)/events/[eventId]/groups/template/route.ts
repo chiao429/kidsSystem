@@ -1,4 +1,4 @@
-import { COURSE_IMPORT_HEADERS } from '@/lib/course-import';
+import { COURSE_IMPORT_HEADERS } from '@/lib/course-import-headers';
 import { csvResponse } from '@/lib/csv';
 
 export function GET() {

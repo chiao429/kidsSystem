@@ -8,10 +8,6 @@ import { getEvent } from './events';
 import { writeLog } from './log';
 import { groups } from './tables';
 
-export const COURSE_IMPORT_HEADERS = [
-  '課程分組', '適用對象', '課程名稱', '課程代碼', '最低年級', '最高年級', '最低年齡', '最高年齡',
-  '名額', '材料費', '課程說明', '注意事項', '報名開始', '報名截止', '允許現場報名', '排序', '狀態',
-] as const;
 
 export type CourseImportRow = Record<string, string>;
 
