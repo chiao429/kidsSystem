@@ -27,6 +27,7 @@ export async function formProps(event: EventInfo) {
       name: c.名稱,
       full: !!cap && count >= cap,
       remaining: cap ? Math.max(cap - count, 0) : null,
+      capacity: cap || null,
       groupName: c.課程分組 || c.適用對象 || '',
       audience: c.適用對象 || '',
       minGrade: c.最低年級 || '',

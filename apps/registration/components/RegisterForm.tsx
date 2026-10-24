@@ -3,10 +3,14 @@
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Alert, Badge, Button, Card, Field, Input, Select, Textarea, buttonClass } from '@kids/ui';
+import { Alert, Button, Card, Field, Input, Select, Textarea, buttonClass } from '@kids/ui';
 import { gradeRank } from '@kids/schema';
 import { lookupHousehold, submitRegistration } from '@/lib/actions';
 import type { CourseOption, HouseholdInput, MemberInput } from '@/lib/types';
+
+/** 課程是否適合此年級 */
+const fitsGrade = (c: CourseOption, grade: string) =>
+  !!grade && (!c.minGrade || gradeRank(grade) >= gradeRank(c.minGrade)) && (!c.maxGrade || gradeRank(grade) <= gradeRank(c.maxGrade));
 
 const emptyMember = (類型: string): MemberInput => ({
   姓名: '',
@@ -52,6 +56,9 @@ export function RegisterForm({
   const [consent, setConsent] = useState(false);
   const [photoConsent, setPhotoConsent] = useState(false);
   const [followUpConsent, setFollowUpConsent] = useState(false);
+
+  const courseGroups = [...new Set(courses.map((c) => c.groupName))];
+  const courseOrder = courses.map((c) => c.id);
 
   const updateMember = (i: number, patch: Partial<MemberInput>) =>
     setMembers((ms) => ms.map((m, idx) => (idx === i ? { ...m, ...patch } : m)));
@@ -215,7 +222,7 @@ export function RegisterForm({
                   </Select>
                 </Field>
                 <Field label="年級" required hint={existing ? '請確認為目前年級' : undefined}>
-                  <Select value={m.年級} onChange={(e) => updateMember(i, { 年級: e.target.value })}>
+                  <Select value={m.年級} onChange={(e) => updateMember(i, { 年級: e.target.value, courses: m.courses.filter((id) => courses.some((c) => c.id === id && fitsGrade(c, e.target.value))) })}>
                     <option value="">請選擇</option>
                     {grades.map((g) => (
                       <option key={g}>{g}</option>
@@ -236,32 +243,22 @@ export function RegisterForm({
                 </div>
                 {courses.length > 0 && (
                   <div className="sm:col-span-3">
-                    <div className="mb-1 text-sm font-medium text-gray-700">
-                      課程<span className="ml-0.5 text-red-500">*</span>{maxCoursesPerMember > 0 && <span className="ml-2 text-xs font-normal text-gray-500">最多 {maxCoursesPerMember} 門</span>}
+                    <div className="mb-2 text-sm font-medium text-gray-700">
+                      課程<span className="ml-0.5 text-red-500">*</span>
+                      <span className="ml-2 text-xs font-normal text-gray-500">{maxCoursesPerMember === 1 ? '請選擇 1 門' : maxCoursesPerMember > 0 ? `最多 ${maxCoursesPerMember} 門` : '可複選'}</span>
                     </div>
-                    <div className="flex flex-wrap gap-3">
-                      {courses.filter((c) => (!c.minGrade || gradeRank(m.年級) >= gradeRank(c.minGrade)) && (!c.maxGrade || gradeRank(m.年級) <= gradeRank(c.maxGrade))).map((c) => (
-                        <label key={c.id} className={`flex max-w-sm items-start gap-1.5 ${c.full || c.registrationState !== 'open' ? 'text-gray-400' : ''}`}>
-                          <input
-                            type={maxCoursesPerMember === 1 ? 'radio' : 'checkbox'}
-                            name={maxCoursesPerMember === 1 ? `course-${i}` : undefined}
-                            disabled={c.full || c.registrationState !== 'open' || (!m.courses.includes(c.id) && !!maxCoursesPerMember && m.courses.length >= maxCoursesPerMember)}
-                            checked={m.courses.includes(c.id)}
-                            onChange={(e) =>
-                              updateMember(i, {
-                                courses: e.target.checked ? (maxCoursesPerMember === 1 ? [c.id] : [...m.courses, c.id]) : m.courses.filter((x) => x !== c.id),
-                              })
-                            }
-                          />
-                          <span>
-                            <span className="font-medium">{c.name}</span>
-                            {c.groupName && <span className="ml-1 text-xs">[{c.groupName}]</span>}
-                            {c.full ? <Badge tone="red">額滿</Badge> : c.registrationState === 'upcoming' ? <Badge tone="gray">尚未開始</Badge> : c.registrationState === 'closed' ? <Badge tone="gray">已截止</Badge> : c.remaining != null && c.remaining <= 5 ? <span className="ml-1">（剩 {c.remaining} 名）</span> : null}
-                            {(c.audience || c.description || c.notice || c.fee > 0) && <span className="block text-xs text-gray-600">{[c.audience, c.description, c.fee > 0 ? `材料費 ${c.fee} 元` : '', c.notice].filter(Boolean).join('｜')}</span>}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
+                    {!m.年級 ? (
+                      <p className="course-empty">請先選擇年級，才會列出適合的課程。</p>
+                    ) : (
+                    <CourseCards
+                      courses={courses.filter((c) => fitsGrade(c, m.年級))}
+                      groups={courseGroups}
+                      order={courseOrder}
+                      selected={m.courses}
+                      max={maxCoursesPerMember}
+                      onChange={(ids) => updateMember(i, { courses: ids })}
+                    />
+                    )}
                     {source === '現場' && !allowOnSiteCourseRegistration && <p className="mt-1 text-xs text-amber-700">此活動不開放現場報名課程</p>}
                   </div>
                 )}
@@ -290,11 +287,115 @@ export function RegisterForm({
           <input type="checkbox" className="mt-1" checked={followUpConsent} onChange={(e) => setFollowUpConsent(e.target.checked)} />
           <span>我同意接收後續活動通知。</span>
         </label>
+        <label className="mt-4 flex items-center gap-2 border-t border-gray-100 pt-4 text-sm font-semibold text-gray-900">
+          <input
+            type="checkbox"
+            className="h-4 w-4"
+            checked={consent && photoConsent && followUpConsent}
+            onChange={(e) => {
+              setConsent(e.target.checked);
+              setPhotoConsent(e.target.checked);
+              setFollowUpConsent(e.target.checked);
+            }}
+          />
+          以上皆同意
+        </label>
       </Card>
 
       <Button size="lg" className="w-full" onClick={submit} disabled={pending || !consent}>
         {pending ? '送出中…' : '送出報名'}
       </Button>
+    </div>
+  );
+}
+
+/** 課程分組的識別色（標籤前的小圓點）；卡片其餘外觀由版面主題 CSS 的 course-* class 決定 */
+const GROUP_DOTS = ['bg-[#ff8a00]', 'bg-[#4aa8ff]', 'bg-[#3ddc84]', 'bg-[#ff54bb]', 'bg-[#ffd400]'];
+
+/** 依分組在整場活動課程中的出現順序配色：不論年級篩出哪些課程，同一分組永遠同色，不同分組不同色 */
+function dotOf(groups: string[], group: string) {
+  return GROUP_DOTS[Math.max(groups.indexOf(group), 0) % GROUP_DOTS.length];
+}
+
+/** 課程卡片：max = 1 時為單選（再點一次可取消），其餘為複選 */
+function CourseCards({
+  courses,
+  groups,
+  order,
+  selected,
+  max,
+  onChange,
+}: {
+  courses: CourseOption[];
+  /** 整場活動的課程分組（決定顏色） */
+  groups: string[];
+  /** 整場活動的課程順序（決定卡片插圖，篩選年級後每門課的插圖不變） */
+  order: string[];
+  selected: string[];
+  max: number;
+  onChange: (ids: string[]) => void;
+}) {
+  if (courses.length === 0) return <p className="course-empty">沒有適合此年級的課程。</p>;
+  const single = max === 1;
+  return (
+    <div role={single ? 'radiogroup' : 'group'} aria-label="課程" className="grid gap-3 sm:grid-cols-2">
+      {courses.map((c) => {
+        const checked = selected.includes(c.id);
+        const unavailable = c.full || c.registrationState !== 'open';
+        const blockedByMax = !single && !checked && max > 0 && selected.length >= max;
+        const disabled = unavailable || blockedByMax;
+        const status = c.full ? '額滿' : c.registrationState === 'upcoming' ? '尚未開放' : c.registrationState === 'closed' ? '已截止' : '';
+        const low = c.remaining != null && c.remaining <= 3;
+        const toggle = () => {
+          if (disabled && !checked) return;
+          if (single) onChange(checked ? [] : [c.id]);
+          else onChange(checked ? selected.filter((x) => x !== c.id) : [...selected, c.id]);
+        };
+        return (
+          <button
+            key={c.id}
+            type="button"
+            role={single ? 'radio' : 'checkbox'}
+            aria-checked={checked}
+            aria-disabled={disabled && !checked}
+            onClick={toggle}
+            className={['course-card', checked && 'is-checked', disabled && !checked && 'is-disabled', !single && 'is-multi'].filter(Boolean).join(' ')}
+          >
+            <span className={`course-art course-art-${(Math.max(order.indexOf(c.id), 0) % 5) + 1}`} aria-hidden />
+            <span className="course-check" aria-hidden>
+              {checked && '✓'}
+            </span>
+            <span className="course-tags">
+              {c.groupName && (
+                <span className="course-tag">
+                  <span className={`h-2.5 w-2.5 rounded-full ${dotOf(groups, c.groupName)}`} />
+                  {c.groupName}
+                </span>
+              )}
+              {c.fee > 0 && <span className="course-chip course-chip-fee">材料費 {c.fee} 元</span>}
+              {status && <span className="course-chip course-chip-status">{status}</span>}
+            </span>
+            <span className="course-name">{c.name}</span>
+            {(c.audience || c.description) && <span className="course-meta">{[c.audience, c.description].filter(Boolean).join('｜')}</span>}
+            {c.notice && <span className="course-notice">注意：{c.notice}</span>}
+            <span className="mt-auto pt-4">
+              {c.capacity != null && c.remaining != null ? (
+                <>
+                  <span className={`course-seats${low && !c.full ? ' is-low' : ''}`}>
+                    <span>{c.full ? '名額已滿' : `剩 ${c.remaining} 個名額`}</span>
+                    <span className="course-seats-total">共 {c.capacity} 名</span>
+                  </span>
+                  <span className="course-bar">
+                    <span style={{ width: `${Math.round(((c.capacity - c.remaining) / c.capacity) * 100)}%` }} />
+                  </span>
+                </>
+              ) : (
+                <span className="course-seats-total">名額不限</span>
+              )}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }

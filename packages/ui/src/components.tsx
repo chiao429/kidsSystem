@@ -16,8 +16,12 @@ const variants: Record<Variant, string> = {
   ghost: 'text-[#4b5565] hover:bg-[#eef1f6]',
 };
 
+/**
+ * 元件都帶有 ui-* 掛鉤 class（不影響預設外觀），讓個別 app 能在特定版面下用 CSS 換主題（例如 registration 的 .theme-shop）。
+ */
 export function buttonClass(variant: Variant = 'primary', size: 'sm' | 'md' | 'lg' = 'md') {
   return clsx(
+    `ui-btn ui-btn-${variant}`,
     'inline-flex items-center justify-center gap-1.5 rounded-full font-semibold transition disabled:cursor-not-allowed disabled:opacity-50',
     size === 'sm' && 'px-2.5 py-1 text-sm',
     size === 'md' && 'px-4 py-2',
@@ -42,16 +46,16 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
   { className, ...props },
   ref,
 ) {
-  return <input ref={ref} className={clsx(fieldClass, className)} {...props} />;
+  return <input ref={ref} className={clsx('ui-input', fieldClass, className)} {...props} />;
 });
 
 export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea className={clsx(fieldClass, className)} {...props} />;
+  return <textarea className={clsx('ui-textarea', fieldClass, className)} {...props} />;
 }
 
 export function Select({ className, children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
-    <select className={clsx(fieldClass, className)} {...props}>
+    <select className={clsx('ui-input', fieldClass, className)} {...props}>
       {children}
     </select>
   );
@@ -60,22 +64,22 @@ export function Select({ className, children, ...props }: SelectHTMLAttributes<H
 export function Field({ label, hint, children, required }: { label: string; hint?: string; children: ReactNode; required?: boolean }) {
   return (
     <label className="block space-y-1">
-      <span className="text-sm font-semibold text-[#4b5565]">
+      <span className="ui-label text-sm font-semibold text-[#4b5565]">
         {label}
         {required && <span className="ml-0.5 text-red-500">*</span>}
       </span>
       {children}
-      {hint && <span className="block text-xs text-gray-500">{hint}</span>}
+      {hint && <span className="ui-hint block text-xs text-gray-500">{hint}</span>}
     </label>
   );
 }
 
 export function Card({ title, actions, children, className }: { title?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={clsx('rounded-[22px] border border-white/80 bg-white p-5 shadow-[0_8px_24px_rgba(35,49,75,0.06)] sm:p-6', className)}>
+    <section className={clsx('ui-card rounded-[22px] border border-white/80 bg-white p-5 shadow-[0_8px_24px_rgba(35,49,75,0.06)] sm:p-6', className)}>
       {(title || actions) && (
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          {title && <h2 className="text-lg font-bold tracking-tight text-[#1f2937]">{title}</h2>}
+          {title && <h2 className="ui-card-title text-lg font-bold tracking-tight text-[#1f2937]">{title}</h2>}
           {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
         </div>
       )}
@@ -108,7 +112,7 @@ export function Stat({ label, value, sub, tone = 'gray' }: { label: string; valu
 }
 
 export function Alert({ tone = 'red', children }: { tone?: 'red' | 'green' | 'amber' | 'blue'; children: ReactNode }) {
-  return <div className={clsx('rounded-2xl px-4 py-3 text-sm', tones[tone])}>{children}</div>;
+  return <div className={clsx(`ui-alert ui-alert-${tone} rounded-2xl px-4 py-3 text-sm`, tones[tone])}>{children}</div>;
 }
 
 export function Empty({ children }: { children: ReactNode }) {

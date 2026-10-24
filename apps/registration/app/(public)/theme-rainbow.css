@@ -1,0 +1,181 @@
+/*
+ * 家長端主題（Rainbow 風格）：粉彩天空漸層背景、圓體粗字、糖果色膠囊按鈕（橘＋粉）、32px 大圓角。
+ * 不用外陰影與細框線，層次靠粉彩底色與內側白色高光。
+ * 只作用在 (public) 版面的 .theme-rainbow 之下，透過 @kids/ui 的 ui-* 掛鉤 class 覆寫，不影響其他系統。
+ */
+.theme-rainbow {
+  --rb-ink: #0f101a;
+  --rb-stone: #777885;
+  --rb-cloud: #f1f3f6;
+  --rb-mist: #c7c7c7;
+  --rb-tangerine: #ff8a00;
+  --rb-pink: #ff54bb;
+  --rb-sky: #99eeff;
+  --rb-coral: linear-gradient(270deg, #ff8465 0%, #ff62a3 100%);
+  --rb-highlight: rgba(255, 255, 255, 0.32) 0 5px 32px 12px inset, rgba(255, 255, 255, 0.44) 0 1px 4px 0 inset;
+  --brand: var(--rb-pink);
+
+  position: relative;
+  min-height: 100vh;
+  overflow-x: hidden;
+  color: var(--rb-ink);
+  /* Prism Wash：天空藍往下化成粉、紫、白 */
+  background: linear-gradient(180deg, #8fe8ff 0%, #c4f3ff 9%, #fff0f0 20%, #fef0ff 30%, #fff7f0 40%, #eeebff 52%, #f6ebff 62%, #ffffff 74%, #e5f1ff 88%, #f1f3f6 100%);
+  font-family: var(--font-rounded), 'SF Pro Rounded', ui-rounded, 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', system-ui, sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- 天空裝飾 ---------- */
+.theme-rainbow .rb-sky { position: absolute; inset: 0 0 auto 0; height: 520px; pointer-events: none; overflow: hidden; }
+.theme-rainbow .rb-cloud { position: absolute; border-radius: 9999px; background: radial-gradient(closest-side, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0)); filter: blur(4px); }
+.theme-rainbow .rb-cloud-1 { width: 420px; height: 160px; top: -40px; right: -80px; }
+.theme-rainbow .rb-cloud-2 { width: 360px; height: 140px; top: 180px; left: -140px; }
+.theme-rainbow .rb-cloud-3 { width: 300px; height: 120px; top: 330px; right: -120px; opacity: 0.8; }
+.theme-rainbow .rb-sparkle { position: absolute; filter: drop-shadow(0 0 10px rgba(250, 227, 0, 0.7)); }
+.theme-rainbow .rb-sparkle-1 { width: 44px; top: 26px; right: 12%; }
+.theme-rainbow .rb-sparkle-2 { width: 20px; top: 14px; right: calc(12% - 22px); }
+.theme-rainbow .rb-sparkle-3 { width: 26px; top: 120px; left: 8%; }
+@media (max-width: 640px) {
+  .theme-rainbow .rb-sparkle-1 { width: 30px; right: 8%; }
+  .theme-rainbow .rb-sparkle-3 { display: none; }
+}
+
+/* ---------- 標誌 ---------- */
+.theme-rainbow .rb-wordmark { display: inline-flex; align-items: center; font-size: 24px; font-weight: 900; letter-spacing: -0.03em; color: var(--rb-ink); }
+
+/* 粗字一律用圓體的重字重 */
+.theme-rainbow .font-bold,
+.theme-rainbow strong,
+.theme-rainbow b { font-weight: 800; }
+
+/* ---------- 卡片：白底、32px、無外陰影，內側白色高光 ---------- */
+.theme-rainbow .ui-card { border: 0; border-radius: 32px; background: rgba(255, 255, 255, 0.92); box-shadow: var(--rb-highlight); padding: 24px; backdrop-filter: blur(6px); }
+@media (min-width: 640px) { .theme-rainbow .ui-card { padding: 32px; } }
+.theme-rainbow .ui-card-title { font-size: 24px; font-weight: 900; letter-spacing: -0.03em; line-height: 1.2; color: var(--rb-ink); }
+
+/* ---------- 按鈕：糖果色膠囊 ---------- */
+.theme-rainbow .ui-btn { border-radius: 40px; font-weight: 800; letter-spacing: -0.01em; box-shadow: none; }
+.theme-rainbow .ui-btn-primary { position: relative; overflow: hidden; isolation: isolate; background: linear-gradient(110deg, #ffb000, #ff8a00 30%, #ff5e7a 70%, #ff54bb) 0 0 / 200% 100%; color: #fff; transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s, background-position 0.6s; }
+.theme-rainbow .ui-btn-primary:hover:not(:disabled) { background-position: 100% 0; transform: translateY(-2px); box-shadow: 0 10px 28px -8px rgba(255, 94, 122, 0.7); }
+.theme-rainbow .ui-btn-primary:active:not(:disabled) { transform: translateY(0) scale(0.97); }
+.theme-rainbow .ui-btn-secondary { border: 0; background: #fff; color: var(--rb-ink); box-shadow: var(--rb-highlight); }
+.theme-rainbow .ui-btn-secondary:hover { background: var(--rb-cloud); }
+.theme-rainbow .ui-btn-ghost { color: var(--rb-stone); }
+.theme-rainbow .ui-btn:disabled { background: var(--rb-mist); color: #fff; opacity: 1; transform: none; filter: none; }
+
+/* 活動頁的兩個主要入口：橘、粉漸層，漸層緩慢流動＋光澤掃過，滑過時浮起發光、箭頭前移 */
+.theme-rainbow .rb-cta { position: relative; display: flex; align-items: center; overflow: hidden; isolation: isolate; justify-content: space-between; font-weight: 800; gap: 16px; min-height: 84px; padding: 16px 28px; border-radius: 44px; font-size: 18px; line-height: 1.25; text-align: left; color: #fff; background-size: 220% 100%; animation: rb-flow 6s ease-in-out infinite alternate; transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s; }
+.theme-rainbow .rb-cta-orange { background-image: linear-gradient(110deg, #ffc24a 0%, #ff8a00 35%, #ff5e3a 65%, #ff8a00 100%); box-shadow: 0 8px 24px -10px rgba(255, 110, 20, 0.65); }
+.theme-rainbow .rb-cta-pink { background-image: linear-gradient(110deg, #ff9ad5 0%, #ff54bb 35%, #c04cff 65%, #ff54bb 100%); box-shadow: 0 8px 24px -10px rgba(220, 60, 200, 0.65); }
+.theme-rainbow .rb-cta:hover { transform: translateY(-4px) scale(1.02); }
+.theme-rainbow .rb-cta-orange:hover { box-shadow: 0 18px 36px -12px rgba(255, 110, 20, 0.75); }
+.theme-rainbow .rb-cta-pink:hover { box-shadow: 0 18px 36px -12px rgba(220, 60, 200, 0.75); }
+.theme-rainbow .rb-cta:active { transform: translateY(-1px) scale(0.98); }
+/* 光澤：斜向白光定時掃過 */
+.theme-rainbow .rb-cta::after,
+.theme-rainbow .ui-btn-primary::after { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.55) 50%, transparent 65%); transform: translateX(-120%); animation: rb-shine 3.6s ease-in-out infinite; pointer-events: none; }
+.theme-rainbow .rb-cta-pink::after { animation-delay: 1.8s; }
+.theme-rainbow .ui-btn-primary:disabled::after { display: none; }
+/* 頂端白色高光，讓膠囊有糖果的光澤感 */
+.theme-rainbow .rb-cta::before { content: ''; position: absolute; inset: 3px 14px auto; z-index: -1; height: 42%; border-radius: 9999px; background: linear-gradient(rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0)); pointer-events: none; }
+.theme-rainbow .rb-cta-arrow { display: flex; width: 48px; height: 48px; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 9999px; background: rgba(255, 255, 255, 0.25); font-size: 22px; font-weight: 900; transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.3s; }
+.theme-rainbow .rb-cta:hover .rb-cta-arrow { transform: translateX(6px); background: rgba(255, 255, 255, 0.4); }
+@keyframes rb-flow { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }
+@keyframes rb-shine { 0%, 55% { transform: translateX(-120%); } 85%, 100% { transform: translateX(120%); } }
+/* 系統開啟「減少動態」時只停掉持續循環的流動與光澤；滑過時的浮起、發光、箭頭仍保留 */
+@media (prefers-reduced-motion: reduce) {
+  .theme-rainbow .rb-cta,
+  .theme-rainbow .rb-cta::after,
+  .theme-rainbow .ui-btn-primary::after { animation: none; }
+  .theme-rainbow .rb-cta::after,
+  .theme-rainbow .ui-btn-primary::after { display: none; }
+}
+
+/* ---------- 輸入框：雲灰底、無框線、膠囊形 ---------- */
+.theme-rainbow .ui-input,
+.theme-rainbow .ui-textarea { border: 2px solid transparent; background: var(--rb-cloud); color: var(--rb-ink); font-size: 16px; font-weight: 600; }
+.theme-rainbow .ui-input { border-radius: 50px; padding-left: 20px; padding-right: 20px; }
+.theme-rainbow .ui-textarea { border-radius: 24px; padding: 12px 20px; }
+.theme-rainbow .ui-input::placeholder,
+.theme-rainbow .ui-textarea::placeholder { color: var(--rb-stone); font-weight: 500; }
+.theme-rainbow .ui-input:focus,
+.theme-rainbow .ui-textarea:focus { border-color: var(--rb-pink); background: #fff; box-shadow: 0 0 0 4px rgba(255, 84, 187, 0.15); }
+.theme-rainbow .ui-label { font-size: 15px; font-weight: 800; color: var(--rb-ink); letter-spacing: -0.02em; }
+.theme-rainbow .ui-hint { color: var(--rb-stone); font-size: 12px; font-weight: 600; }
+
+/* ---------- 提示、勾選 ---------- */
+.theme-rainbow .ui-alert { border-radius: 24px; padding: 14px 20px; font-weight: 700; }
+.theme-rainbow input[type='checkbox'],
+.theme-rainbow input[type='radio'] { accent-color: var(--rb-pink); }
+.theme-rainbow .rb-link { color: var(--rb-ink); font-weight: 800; text-decoration: underline; text-decoration-color: var(--rb-pink); text-decoration-thickness: 3px; text-underline-offset: 5px; }
+.theme-rainbow .rb-link:hover { color: var(--rb-pink); }
+
+/* ---------- 課程卡片（上方抽象漸層插圖，漸隱到淺灰卡身，文字在下） ---------- */
+.theme-rainbow .course-card { position: relative; display: flex; flex-direction: column; overflow: hidden; isolation: isolate; border: 3px solid transparent; border-radius: 28px; background: #f4f5f8; padding: 0 18px 18px; text-align: left; transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s; }
+.theme-rainbow .course-card:hover:not(.is-disabled) { transform: translateY(-4px); box-shadow: 0 16px 32px -18px rgba(15, 16, 26, 0.35); }
+.theme-rainbow .course-card:active:not(.is-disabled) { transform: translateY(-1px) scale(0.99); }
+/* 選取：珊瑚漸層外框（雙層背景技巧：border 透明、外層畫漸層） */
+.theme-rainbow .course-card.is-checked { background: linear-gradient(#f4f5f8, #f4f5f8) padding-box, var(--rb-coral) border-box; box-shadow: 0 14px 30px -16px rgba(255, 84, 187, 0.6); }
+.theme-rainbow .course-card.is-disabled { cursor: not-allowed; opacity: 0.55; filter: grayscale(0.6); }
+
+/* 插圖：多層 radial-gradient 組成的柔和抽象形狀，往下漸隱 */
+.theme-rainbow .course-art { position: relative; z-index: -1; display: block; height: 150px; margin: 0 -18px -40px; -webkit-mask-image: linear-gradient(#000 55%, transparent); mask-image: linear-gradient(#000 55%, transparent); transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
+.theme-rainbow .course-card:hover .course-art { transform: scale(1.08); }
+.theme-rainbow .course-art::before,
+.theme-rainbow .course-art::after { content: ''; position: absolute; border-radius: 9999px; }
+/* 1 粉霧 */
+.theme-rainbow .course-art-1 { background: radial-gradient(60% 90% at 25% 20%, #ff8fc0 0%, transparent 70%), radial-gradient(55% 80% at 80% 10%, #ffc3a6 0%, transparent 70%), radial-gradient(70% 90% at 60% 70%, #ffd6e8 0%, transparent 75%), #ffe9f2; }
+.theme-rainbow .course-art-1::before { width: 70%; height: 140%; left: -10%; top: -60%; background: linear-gradient(160deg, rgba(255, 255, 255, 0.7), transparent 60%); transform: rotate(-18deg); }
+/* 2 紫霧＋玻璃球 */
+.theme-rainbow .course-art-2 { background: radial-gradient(80% 100% at 50% 0%, #c8bfff 0%, transparent 70%), radial-gradient(50% 70% at 15% 60%, #e3dcff 0%, transparent 70%), #efeaff; }
+.theme-rainbow .course-art-2::before { width: 56px; height: 56px; left: calc(50% - 28px); top: 30px; background: radial-gradient(circle at 32% 28%, #fff 0 12%, rgba(255, 255, 255, 0.6) 22%, #b9adff 60%, #8f7cff 100%); box-shadow: 0 10px 18px -6px rgba(110, 90, 255, 0.55); }
+.theme-rainbow .course-art-2::after { width: 140px; height: 30px; left: calc(50% - 70px); top: 76px; border: 2px solid rgba(255, 255, 255, 0.7); background: transparent; }
+/* 3 萊姆綠波浪 */
+.theme-rainbow .course-art-3 { background: radial-gradient(70% 90% at 20% 30%, #dff45a 0%, transparent 70%), radial-gradient(60% 80% at 85% 20%, #b9e83c 0%, transparent 70%), #f2fbc4; }
+.theme-rainbow .course-art-3::before { width: 150%; height: 80px; left: -25%; top: 30px; background: linear-gradient(180deg, rgba(255, 255, 255, 0.75), transparent 70%); transform: rotate(-8deg); }
+.theme-rainbow .course-art-3::after { width: 150%; height: 60px; left: -20%; top: 62px; background: linear-gradient(180deg, rgba(200, 235, 60, 0.6), transparent 70%); transform: rotate(6deg); }
+/* 4 藍色泡泡 */
+.theme-rainbow .course-art-4 { background: radial-gradient(70% 100% at 60% 0%, #7fb4ff 0%, transparent 70%), radial-gradient(60% 80% at 10% 40%, #b8d7ff 0%, transparent 70%), #e6f0ff; }
+.theme-rainbow .course-art-4::before { width: 64px; height: 64px; right: 16%; top: 22px; background: radial-gradient(circle at 30% 30%, #fff 0 10%, #a9cbff 45%, #5b95ff 100%); opacity: 0.9; }
+.theme-rainbow .course-art-4::after { width: 34px; height: 34px; right: calc(16% + 72px); top: 64px; background: radial-gradient(circle at 30% 30%, #fff 0 12%, #c3dbff 50%, #7aa9ff 100%); opacity: 0.85; }
+/* 5 蜜桃橘 */
+.theme-rainbow .course-art-5 { background: radial-gradient(65% 90% at 75% 15%, #ffb347 0%, transparent 70%), radial-gradient(60% 90% at 20% 50%, #ffd08a 0%, transparent 70%), #fff1dc; }
+.theme-rainbow .course-art-5::before { width: 90px; height: 90px; left: 14%; top: 10px; background: radial-gradient(circle, rgba(255, 255, 255, 0.85), transparent 70%); }
+
+.theme-rainbow .course-tags { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 36px; margin-top: -96px; padding-right: 36px; }
+.theme-rainbow .course-check { position: absolute; right: 14px; top: 14px; z-index: 1; display: flex; width: 28px; height: 28px; align-items: center; justify-content: center; border-radius: 9999px; background: rgba(255, 255, 255, 0.85); color: #fff; font-size: 15px; font-weight: 900; backdrop-filter: blur(4px); }
+.theme-rainbow .course-card.is-multi .course-check { border-radius: 10px; }
+.theme-rainbow .course-card.is-checked .course-check { background: var(--rb-coral); }
+.theme-rainbow .course-tag { display: inline-flex; align-items: center; gap: 6px; border-radius: 50px; background: rgba(255, 255, 255, 0.85); padding: 3px 10px 3px 6px; font-size: 12px; font-weight: 800; backdrop-filter: blur(4px); }
+.theme-rainbow .course-chip { border-radius: 50px; background: rgba(255, 255, 255, 0.85); padding: 3px 10px; font-size: 12px; font-weight: 800; backdrop-filter: blur(4px); }
+.theme-rainbow .course-chip-fee { color: #c25f00; }
+.theme-rainbow .course-chip-status { background: var(--rb-ink); color: #fff; }
+.theme-rainbow .course-name { margin-top: 70px; font-size: 18px; font-weight: 900; line-height: 1.3; letter-spacing: -0.03em; }
+.theme-rainbow .course-meta { margin-top: 4px; font-size: 12px; color: var(--rb-stone); }
+.theme-rainbow .course-notice { margin-top: 12px; border-radius: 16px; background: #fff; padding: 8px 12px; font-size: 12px; line-height: 1.6; color: var(--rb-ink); }
+.theme-rainbow .course-seats { display: flex; align-items: baseline; justify-content: space-between; font-size: 13px; font-weight: 800; }
+.theme-rainbow .course-seats-total { font-size: 12px; color: var(--rb-stone); }
+.theme-rainbow .course-seats.is-low { color: #e5245f; }
+.theme-rainbow .course-bar { display: block; height: 8px; margin-top: 6px; overflow: hidden; border-radius: 9999px; background: #fff; }
+.theme-rainbow .course-bar > span { display: block; height: 100%; border-radius: 9999px; background: linear-gradient(90deg, #4aa8ff, #3ddc84, #ffd400, #ff8a00, #ff4fa3); }
+.theme-rainbow .course-empty { border-radius: 24px; background: var(--rb-cloud); padding: 12px 16px; font-size: 14px; color: var(--rb-stone); }
+
+/* ---------- 活動說明（後台富文字） ---------- */
+.theme-rainbow .ui-rich-text { color: var(--rb-ink); font-size: 15px; font-weight: 500; line-height: 1.75; }
+.theme-rainbow .ui-rich-text h2,
+.theme-rainbow .ui-rich-text h3 { color: var(--rb-ink); font-weight: 900; letter-spacing: -0.03em; }
+.theme-rainbow .ui-rich-text a { color: var(--rb-ink); text-decoration-color: var(--rb-pink); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+/* 表格：不用細框線，改成雲灰色圓角格子＋白色間隙 */
+.theme-rainbow .ui-rich-text table { width: fit-content; max-width: 100%; margin: 12px 0 20px; border: 0; border-collapse: separate; border-spacing: 4px; overflow-x: auto; }
+.theme-rainbow .ui-rich-text th,
+.theme-rainbow .ui-rich-text td { border: 0; border-radius: 14px; background: var(--rb-cloud); padding: 10px 14px; }
+.theme-rainbow .ui-rich-text th,
+.theme-rainbow .ui-rich-text tr:first-child > td:not([style*='background']) { background: #e0f7ff; font-weight: 800; }
+
+/* ---------- 活動頁主視覺 ---------- */
+.theme-rainbow .rb-hero { width: 100vw; margin-left: calc(50% - 50vw); padding: 24px 16px 8px; text-align: center; }
+.theme-rainbow .rb-hero-title { max-width: 1100px; margin: 0 auto; overflow: hidden; font-weight: 900; line-height: 1.15; letter-spacing: -0.03em; color: var(--rb-ink); }
+.theme-rainbow .rb-hero-sub { margin-top: 12px; font-size: 18px; font-weight: 700; color: var(--rb-ink); opacity: 0.8; }

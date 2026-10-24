@@ -68,7 +68,7 @@ export default async function DonePage({
         </Card>
       ))}
       {searchParams.source === RegistrationSource.OnSite && checkinUrl && (
-        <a href={`${checkinUrl}/e/${event.活動ID}`} className="block text-center text-[#315bc7] underline">
+        <a href={`${checkinUrl}/e/${event.活動ID}`} className="rb-link block text-center">
           回到報到系統
         </a>
       )}

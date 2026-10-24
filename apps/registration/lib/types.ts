@@ -53,6 +53,8 @@ export interface CourseOption {
   full: boolean;
   /** 剩餘名額；不限名額為 null */
   remaining: number | null;
+  /** 名額；不限名額為 null */
+  capacity: number | null;
   groupName: string;
   audience: string;
   minGrade: string;
