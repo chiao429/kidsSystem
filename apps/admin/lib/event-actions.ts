@@ -86,6 +86,17 @@ export async function updateEvent(eventId: string, _: FormResult, formData: Form
   return { message: '已儲存' };
 }
 
+/** 活動說明分頁：只更新活動說明（家長報名頁顯示的內容），回傳消毒後的 HTML 讓畫面與資料庫一致 */
+export async function saveEventDescription(eventId: string, html: string): Promise<{ error?: string; html?: string }> {
+  const session = requireSession({ permission: 'admin', eventId });
+  const event = await getEvent(eventId);
+  const clean = sanitizeRichText(html);
+  await events().updateByIds([{ id: eventId, changes: { 活動說明: clean } }]);
+  await writeLog(event.活動ID, session, '更新活動說明', eventId);
+  revalidatePath(`/events/${eventId}/description`);
+  return { html: clean };
+}
+
 /** 刪除＝封存：資料全部保留，各系統清單與家長端都不再顯示；需輸入活動ID 確認 */
 export async function archiveEvent(eventId: string, formData: FormData) {
   const session = requireSession({ permission: 'admin', allEvents: true });

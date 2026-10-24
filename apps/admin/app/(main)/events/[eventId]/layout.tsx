@@ -12,6 +12,7 @@ export default async function EventLayout({ children, params }: { children: Reac
   const base = `/events/${params.eventId}`;
   const tabs = [
     ['', '設定'],
+    ['/description', '活動說明'],
     ['/groups', '課程'],
     ['/registrations', '報名'],
     ['/logs', '日誌'],

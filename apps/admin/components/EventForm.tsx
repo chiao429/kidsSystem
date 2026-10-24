@@ -1,15 +1,14 @@
 import { EventStatus, GRADE_OPTIONS, GROUP_TYPES, type EventRules } from '@kids/schema';
 import { Field, Input, Select } from '@kids/ui';
 import { ActionForm, SubmitButton, type FormResult } from '@kids/ui/client';
-import { RichTextEditor } from '@kids/ui/rich-text-editor';
 import type { EventRow } from '@/lib/events';
 
 /** 封存只能從活動清單操作，不出現在狀態選單 */
 const STATUS_OPTIONS = Object.values(EventStatus).filter((s) => s !== EventStatus.Archived);
 
 /**
- * 活動設定：只放必要欄位。活動時間、地點、報到／繳費時間等資訊改寫在「活動說明」裡；
- * 這些舊欄位不在表單上，更新時會保留原值（見 event-actions 的 readEventForm）。
+ * 活動設定：只放必要欄位。活動時間、地點、報到／繳費時間等資訊改寫在「活動說明」分頁裡；
+ * 這些舊欄位與活動說明都不在表單上，更新時會保留原值（見 event-actions 的 readEventForm）。
  */
 export function EventForm({
   action,
@@ -90,8 +89,6 @@ export function EventForm({
           </label>
         </div>
       </fieldset>
-
-      <RichTextEditor name="description" label="活動說明" hint="會顯示在家長報名頁；時間、地點、報到與繳費資訊請寫在這裡" defaultValue={event?.活動說明} />
 
       {/* 新增活動且必須填試算表時預設展開，避免必填欄位藏在收合區塊裡無法送出 */}
       <details open={!event && sheetRequired} className="rounded-2xl border border-gray-200 p-4 [&[open]>summary]:mb-4">
