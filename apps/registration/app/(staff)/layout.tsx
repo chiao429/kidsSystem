@@ -11,7 +11,7 @@ async function logoutAction() {
 export default function StaffLayout({ children }: { children: React.ReactNode }) {
   const session = requireSession({ permission: 'import' });
   return (
-    <Shell title="報名系統｜工作人員" brand="#16a34a" nav={[{ href: '/import', label: '匯入舊資料' }]} user={session.name} logoutAction={logoutAction}>
+    <Shell title="報名系統｜工作人員" brand="#315bc7" nav={[{ href: '/import', label: '匯入舊資料' }]} user={session.name} logoutAction={logoutAction}>
       {children}
     </Shell>
   );

@@ -24,7 +24,7 @@ export default async function SurveysPage({ params }: { params: { eventId: strin
                 </td>
                 <td className="px-2 py-2 tabular-nums">{responses.filter((r) => r.問卷ID === s.問卷ID).length}</td>
                 <td className="px-2 py-2 text-right">
-                  <Link href={`/events/${params.eventId}/surveys/${s.問卷ID}`} className="text-purple-700 hover:underline">
+                  <Link href={`/events/${params.eventId}/surveys/${s.問卷ID}`} className="text-[#315bc7] hover:underline">
                     編輯／結果
                   </Link>
                 </td>

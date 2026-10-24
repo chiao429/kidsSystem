@@ -26,7 +26,7 @@ export default async function FamiliesPage({ searchParams }: { searchParams: { q
           {rows.map((h) => (
             <tr key={h.家庭ID}>
               <td className="px-2 py-1.5">
-                <Link href={`/families/${h.家庭ID}`} className="text-purple-700 underline">
+                <Link href={`/families/${h.家庭ID}`} className="text-[#315bc7] underline">
                   {h.主要聯絡人 || '（未填）'}
                 </Link>
               </td>

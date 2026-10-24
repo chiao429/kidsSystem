@@ -30,7 +30,7 @@ export function LoginForm({
     if (state.redirect) window.location.assign(state.redirect);
   }, [state.redirect]);
   return (
-    <form action={formAction} className="mx-auto mt-16 max-w-sm space-y-4 rounded-xl border bg-white p-6 shadow-sm">
+    <form action={formAction} className="mx-auto mt-16 max-w-sm space-y-5 rounded-[22px] border border-white/80 bg-white p-6 shadow-[0_8px_24px_rgba(35,49,75,0.06)]">
       <h1 className="text-xl font-bold">{title}</h1>
       {next && <input type="hidden" name="next" value={next} />}
       <Field label="帳號">

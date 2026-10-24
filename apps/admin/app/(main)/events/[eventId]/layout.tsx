@@ -21,7 +21,7 @@ export default async function EventLayout({ children, params }: { children: Reac
       <div>
         <div className="text-sm text-gray-500">{event.活動ID}</div>
         <h1 className="text-2xl font-bold">{event.名稱}</h1>
-        <a href={event.活動試算表} target="_blank" rel="noreferrer" className="text-sm text-purple-700 underline">
+        <a href={event.活動試算表} target="_blank" rel="noreferrer" className="text-sm text-[#315bc7] underline">
           開啟活動試算表
         </a>
       </div>

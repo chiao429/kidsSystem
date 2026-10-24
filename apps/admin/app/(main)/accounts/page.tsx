@@ -119,7 +119,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: { e
                   {r.需改密碼 === 'Y' && <Badge tone="amber">待改密碼</Badge>}
                 </td>
                 <td className="space-x-1 whitespace-nowrap px-2 py-2 text-right">
-                  <a href={withBase(`/accounts?edit=${encodeURIComponent(r.帳號)}`)} className="text-purple-700 hover:underline">
+                  <a href={withBase(`/accounts?edit=${encodeURIComponent(r.帳號)}`)} className="text-[#315bc7] hover:underline">
                     編輯
                   </a>
                   <form action={resetPassword.bind(null, r.帳號)} className="inline">

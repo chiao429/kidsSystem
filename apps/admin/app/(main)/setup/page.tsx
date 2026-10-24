@@ -87,7 +87,7 @@ async function SyncCard() {
                 <td className="px-2 py-1.5">{c.editor}</td>
                 <td className="px-2 py-1.5">
                   <form action={markResolved.bind(null, c._id)}>
-                    <button className="text-xs text-purple-700 underline">已處理</button>
+                    <button className="text-xs text-[#315bc7] underline">已處理</button>
                   </form>
                 </td>
               </tr>

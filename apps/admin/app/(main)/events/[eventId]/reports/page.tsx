@@ -67,7 +67,7 @@ export default async function ReportsPage({ params }: { params: { eventId: strin
                 <select name="format" className="rounded border border-gray-300 px-2 py-1">
                   <option value="csv">CSV</option>
                 </select>
-                <button className="rounded-lg bg-purple-600 px-3 py-1.5 text-white">下載</button>
+                <button className="rounded-full bg-[#315bc7] px-3 py-1.5 text-white shadow-sm">下載</button>
               </div>
             </form>
           ))}

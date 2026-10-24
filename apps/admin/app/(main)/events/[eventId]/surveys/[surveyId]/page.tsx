@@ -32,7 +32,7 @@ export default async function SurveyDetailPage({ params }: { params: { eventId: 
           {/* eslint-disable-next-line @next/next/no-img-element */}
           {qr && <img src={qr} alt="問卷 QR Code" className="h-32 w-32" />}
           <div className="space-y-1 text-sm">
-            <a href={url} target="_blank" rel="noreferrer" className="break-all text-purple-700 underline">
+            <a href={url} target="_blank" rel="noreferrer" className="break-all text-[#315bc7] underline">
               {url}
             </a>
             <p className="text-gray-500">狀態需為「開放」才能填寫。共 {responses.length} 份回覆。</p>
@@ -74,7 +74,7 @@ export default async function SurveyDetailPage({ params }: { params: { eventId: 
                           <div key={o} className="flex items-center gap-2 text-sm">
                             <span className="w-32 shrink-0 truncate">{o}</span>
                             <div className="h-3 flex-1 rounded bg-gray-100">
-                              <div className="h-3 rounded bg-purple-500" style={{ width: `${pct}%` }} />
+                              <div className="h-3 rounded bg-[#315bc7]" style={{ width: `${pct}%` }} />
                             </div>
                             <span className="w-16 text-right tabular-nums">
                               {n}（{pct}%）

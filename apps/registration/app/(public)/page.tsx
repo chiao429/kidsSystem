@@ -15,7 +15,7 @@ export default async function HomePage() {
               const w = registrationWindow(e);
               return (
                 <li key={e.活動ID}>
-                  <Link href={`/e/${e.活動ID}`} className="flex items-center justify-between py-3 hover:text-green-700">
+                  <Link href={`/e/${e.活動ID}`} className="flex items-center justify-between py-3 hover:text-[#315bc7]">
                     <div>
                       <div className="font-medium">{e.名稱}</div>
                       <div className="text-sm text-gray-500">
