@@ -25,8 +25,15 @@ export interface RegisterPayload {
   source: string;
   household: HouseholdInput;
   members: MemberInput[];
-  /** 既有家庭：以手機號碼查詢 */
+  /** new：第一次報名（建立家庭）；returning：曾經報名過（家庭由 PIN 驗證的 cookie 決定） */
+  mode: 'new' | 'returning';
+  /** 同工現場報名：以手機號碼查詢既有家庭（需同工登入，家長端不會帶這個欄位） */
   lookup?: { phone: string };
+  /** 第一次報名設定的 PIN（4 位數字） */
+  pin?: string;
+  pinConfirm?: string;
+  /** 記住這台裝置 */
+  remember?: boolean;
   consent: boolean;
   photoConsent: boolean;
   followUpConsent: boolean;
@@ -40,6 +47,8 @@ export interface RegisterResult {
 
 export interface LookupResult {
   error?: string;
+  /** 尚未以 PIN 驗證（或驗證已過期），需要回到登入步驟 */
+  needsLogin?: boolean;
   /** 此家庭在本活動已完成的報名（用來顯示報到 QR code） */
   registrationIds?: string[];
   household?: HouseholdInput & { 家庭ID: string };

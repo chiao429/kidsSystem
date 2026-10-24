@@ -54,10 +54,13 @@ export const HouseholdTable = defineTable({
   key: 'households',
   scope: 'master',
   idColumn: '家庭ID',
-  headers: ['家庭ID', '主要聯絡人', '電話', 'Email', '地址', '建立時間', '更新時間'],
+  // PIN：家長「曾經報名過」時以手機＋4 位數 PIN 帶入資料；連續錯誤會暫時鎖定
+  headers: ['家庭ID', '主要聯絡人', '電話', 'Email', '地址', '建立時間', '更新時間', 'PIN雜湊', 'PIN錯誤次數', 'PIN鎖定至'],
   owner: 'registration',
-  updatableBy: { admin: ['主要聯絡人', '電話', 'Email', '地址', '更新時間'] },
+  // admin 可重設 PIN（清空後家長用孩子生日驗證再設定）
+  updatableBy: { admin: ['主要聯絡人', '電話', 'Email', '地址', '更新時間', 'PIN雜湊', 'PIN錯誤次數', 'PIN鎖定至'] },
   sheetEditable: ['主要聯絡人', '電話', 'Email', '地址'],
+  mirrorExclude: ['PIN雜湊', 'PIN錯誤次數', 'PIN鎖定至'],
 });
 
 export const MemberTable = defineTable({

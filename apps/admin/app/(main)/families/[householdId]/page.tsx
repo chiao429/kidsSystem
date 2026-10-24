@@ -1,10 +1,10 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { Card, Field, Input, Select, Textarea } from '@kids/ui';
+import { Badge, Card, Field, Input, Select, Textarea } from '@kids/ui';
 import { ActionForm, SubmitButton } from '@kids/ui/client';
 import { requireSession } from '@kids/auth/next';
 import { GRADE_OPTIONS, MemberType } from '@kids/schema';
-import { saveHousehold, saveMember } from '@/lib/family-actions';
+import { resetHouseholdPin, saveHousehold, saveMember } from '@/lib/family-actions';
 import { households, members } from '@/lib/tables';
 
 export default async function FamilyPage({ params }: { params: { householdId: string } }) {
@@ -35,6 +35,20 @@ export default async function FamilyPage({ params }: { params: { householdId: st
             <SubmitButton>儲存家庭</SubmitButton>
           </div>
         </ActionForm>
+      </Card>
+      <Card title="家長 PIN">
+        <div className="flex flex-wrap items-center gap-3 text-sm">
+          {h.PIN雜湊 ? <Badge tone="green">已設定</Badge> : <Badge tone="gray">尚未設定</Badge>}
+          {h.PIN鎖定至 && new Date(h.PIN鎖定至).getTime() > Date.now() && <Badge tone="red">錯誤太多次，鎖定中</Badge>}
+          <span className="text-gray-600">家長忘記 PIN 時可以自己用孩子的全名＋生日驗證後重設；「重設 PIN」會清空 PIN 並解除錯誤鎖定，家長下次一樣用孩子的全名＋生日驗證後重新設定。</span>
+          {(h.PIN雜湊 || h.PIN鎖定至) && (
+            <form action={resetHouseholdPin.bind(null, h.家庭ID)}>
+              <SubmitButton variant="secondary" size="sm">
+                重設 PIN（並解除鎖定）
+              </SubmitButton>
+            </form>
+          )}
+        </div>
       </Card>
       {mm.map((m) => (
         <Card key={m.成員ID} title={m.姓名} actions={<span className="font-mono text-xs text-gray-400">{m.成員ID}</span>}>

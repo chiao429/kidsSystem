@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Alert, Button, Card, Field, Input, Select, Textarea, buttonClass } from '@kids/ui';
 import { gradeRank } from '@kids/schema';
-import { lookupHousehold, submitRegistration } from '@/lib/actions';
+import { familySignOut, lookupHousehold, submitRegistration } from '@/lib/actions';
+import { FamilyLogin } from './FamilyLogin';
 import type { CourseOption, HouseholdInput, MemberInput } from '@/lib/types';
 
 /** 課程是否適合此年級 */
@@ -33,6 +34,8 @@ export function RegisterForm({
   defaultType,
   maxCoursesPerMember,
   allowOnSiteCourseRegistration,
+  staff = false,
+  remembered,
 }: {
   eventId: string;
   mode: 'new' | 'returning';
@@ -42,6 +45,10 @@ export function RegisterForm({
   defaultType: string;
   maxCoursesPerMember: number;
   allowOnSiteCourseRegistration: boolean;
+  /** 同工現場報名（已登入同工）：曾經報名過可直接用手機查詢，第一次報名可不設 PIN */
+  staff?: boolean;
+  /** 這台裝置記住的家庭 */
+  remembered?: { name: string; phone: string };
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -56,6 +63,9 @@ export function RegisterForm({
   const [consent, setConsent] = useState(false);
   const [photoConsent, setPhotoConsent] = useState(false);
   const [followUpConsent, setFollowUpConsent] = useState(false);
+  const [pin, setPin] = useState('');
+  const [pinConfirm, setPinConfirm] = useState('');
+  const [remember, setRemember] = useState(true);
 
   const courseGroups = [...new Set(courses.map((c) => c.groupName))];
   const courseOrder = courses.map((c) => c.id);
@@ -66,9 +76,10 @@ export function RegisterForm({
   const doLookup = () =>
     startTransition(async () => {
       setError('');
-      const res = await lookupHousehold(eventId, lookup.phone);
+      const res = await lookupHousehold(eventId, staff ? lookup.phone : undefined);
       if (res.error || !res.household) {
         setError(res.error ?? '查無資料');
+        setFound(false);
         return;
       }
       setHousehold(res.household);
@@ -89,7 +100,11 @@ export function RegisterForm({
         source,
         household,
         members,
-        lookup: mode === 'returning' ? lookup : undefined,
+        mode,
+        lookup: mode === 'returning' && staff ? lookup : undefined,
+        pin: mode === 'new' ? pin : undefined,
+        pinConfirm: mode === 'new' ? pinConfirm : undefined,
+        remember,
         consent,
         photoConsent,
         followUpConsent,
@@ -118,9 +133,18 @@ export function RegisterForm({
     </Alert>
   );
 
+  if (!found && !staff) {
+    return (
+      <div className="space-y-4">
+        {messages}
+        <FamilyLogin remembered={remembered} onVerified={doLookup} />
+      </div>
+    );
+  }
+
   if (!found) {
     return (
-      <Card title="查詢家庭資料">
+      <Card title="查詢家庭資料（同工現場報名）">
         <div className="space-y-3">
           {messages}
           <Field label="手機號碼" required>
@@ -142,6 +166,28 @@ export function RegisterForm({
   return (
     <div className="space-y-4">
       {messages}
+      {mode === 'returning' && (
+        <Alert tone="blue">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span>勾選這次要報名的孩子，沒有勾選的不會報名；也可以新增家庭成員。</span>
+            {!staff && (
+              <button
+                type="button"
+                className="text-sm underline"
+                onClick={() =>
+                  startTransition(async () => {
+                    await familySignOut();
+                    setMembers([]);
+                    setFound(false);
+                  })
+                }
+              >
+                換一個家庭
+              </button>
+            )}
+          </div>
+        </Alert>
+      )}
       {registeredIds.length > 0 && (
         <Card title="已完成報名">
           <p className="mb-3 text-sm text-gray-700">此家庭在本活動已有 {registeredIds.length} 位報名，活動當天出示報到 QR code 即可快速報到。</p>
@@ -272,6 +318,29 @@ export function RegisterForm({
         ＋ 新增{mode === 'returning' ? '家庭成員' : '同戶報名者'}
       </Button>
 
+      {mode === 'new' && (
+        <Card title="設定 PIN">
+          <p className="mb-3 text-sm text-gray-600">
+            {staff ? '同工現場代填可以先不設定，家長之後可用孩子的姓名與生日驗證再設定。' : '請設定 4 位數字的 PIN。下次報名選「曾經報名過」，輸入手機＋PIN 就能自動帶入家長與孩子的資料。'}
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="PIN（4 位數字）" required={!staff}>
+              <Input inputMode="numeric" type="password" autoComplete="new-password" maxLength={4} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))} />
+            </Field>
+            <Field label="再輸入一次" required={!staff}>
+              <Input inputMode="numeric" type="password" autoComplete="new-password" maxLength={4} value={pinConfirm} onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 4))} />
+            </Field>
+          </div>
+          {pin.length === 4 && pinConfirm.length === 4 && pin !== pinConfirm && <p className="mt-2 text-sm text-red-600">兩次輸入的 PIN 不一致</p>}
+          {!staff && (
+            <label className="mt-3 flex items-center gap-2 text-sm text-gray-700">
+              <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+              記住這台裝置（90 天內不用再輸入 PIN；共用電腦請不要勾）
+            </label>
+          )}
+        </Card>
+      )}
+
       <Card>
         <label className="flex items-start gap-2 text-sm text-gray-700">
           <input type="checkbox" className="mt-1" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
@@ -302,7 +371,7 @@ export function RegisterForm({
         </label>
       </Card>
 
-      <Button size="lg" className="w-full" onClick={submit} disabled={pending || !consent}>
+      <Button size="lg" className="w-full" onClick={submit} disabled={pending || !consent || (mode === 'new' && !staff && (pin.length !== 4 || pin !== pinConfirm))}>
         {pending ? '送出中…' : '送出報名'}
       </Button>
     </div>

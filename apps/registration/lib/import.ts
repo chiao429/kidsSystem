@@ -108,7 +108,7 @@ export async function importRows(event: EventInfo, raw: Raw[], dryRun: boolean):
     // 家庭：電話優先，其次家長姓名
     let household = allHH.find((h) => (row.phone ? normalizePhone(h.電話) === row.phone : h.主要聯絡人 === row.parent));
     if (!household) {
-      household = { 家庭ID: newId('家庭ID'), 主要聯絡人: row.parent, 電話: row.phone, Email: row.email, 地址: '', 建立時間: now, 更新時間: now };
+      household = { 家庭ID: newId('家庭ID'), 主要聯絡人: row.parent, 電話: row.phone, Email: row.email, 地址: '', 建立時間: now, 更新時間: now, PIN雜湊: '', PIN錯誤次數: '', PIN鎖定至: '' };
       allHH.push(household);
       newHH.push(household);
     }

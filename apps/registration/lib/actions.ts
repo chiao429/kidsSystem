@@ -12,25 +12,52 @@ import {
   nowString,
 } from '@kids/schema';
 import { checkMember, initialStatus, isActive, loadCourseState, nextSerial } from './eligibility';
+import {
+  findHousehold,
+  hashPin,
+  isStaff,
+  isValidPin,
+  loginWithPin,
+  resolveReturningFamily,
+  setPinAfterVerify,
+  signInFamily,
+  signOutFamily,
+  verifyByChild,
+  type FamilyAuthResult,
+} from './family-auth';
 import { getEvent, registrationWindow } from './events';
 import { groupMembers, households, members, registrations } from './tables';
 import type { LookupResult, MemberInput, RegisterPayload, RegisterResult } from './types';
 
 const clean = (v: unknown) => String(v ?? '').trim().slice(0, 200);
 
-/** 以手機號碼找家庭（手機號碼在家庭資料中唯一） */
-async function findHousehold(phone: string) {
-  const p = normalizePhone(phone);
-  if (!p) return null;
-  const all = await households().all({ fresh: true });
-  return all.find((h) => normalizePhone(h.電話) === p) ?? null;
+// ── 家長驗證（手機＋PIN；忘記 PIN 用孩子生日） ──
+
+export async function familyLogin(phone: string, pin: string, remember: boolean): Promise<FamilyAuthResult> {
+  return loginWithPin(clean(phone), clean(pin), remember);
 }
 
-export async function lookupHousehold(eventId: string, phone: string): Promise<LookupResult> {
+export async function familyVerifyChild(phone: string, name: string, birthday: string): Promise<FamilyAuthResult> {
+  return verifyByChild(clean(phone), clean(name), clean(birthday));
+}
+
+export async function familySetPin(pin: string, confirm: string, remember: boolean): Promise<FamilyAuthResult> {
+  return setPinAfterVerify(clean(pin), clean(confirm), remember);
+}
+
+/** 不是我／換一個家庭：清掉這台裝置記住的家庭 */
+export async function familySignOut(): Promise<void> {
+  signOutFamily();
+}
+
+/**
+ * 「曾經報名過」帶入家庭資料：只回傳以 PIN 驗證過的家庭；同工現場報名可直接用手機查詢（staffPhone）。
+ */
+export async function lookupHousehold(eventId: string, staffPhone?: string): Promise<LookupResult> {
   const event = await getEvent(eventId);
   if (!event) return { error: '找不到活動' };
-  const household = await findHousehold(phone);
-  if (!household) return { error: '查無資料，請確認手機號碼，或改用「第一次報名」' };
+  const household = await resolveReturningFamily(staffPhone ? clean(staffPhone) : undefined);
+  if (!household) return { error: staffPhone ? '查無資料，請確認手機號碼，或改用「第一次報名」' : '請先輸入手機與 PIN', needsLogin: !staffPhone };
 
   const [allMembers, regs] = await Promise.all([members().all(), registrations(event.活動ID).all()]);
   const activeRegs = regs.filter(isActive);
@@ -112,15 +139,19 @@ export async function submitRegistration(payload: RegisterPayload): Promise<Regi
   // ── 找到或建立家庭 ──
   let 家庭ID: string;
   let isNewHousehold = false;
-  if (payload.lookup) {
-    const found = await findHousehold(payload.lookup.phone);
-    if (!found) return { error: '家庭資料驗證失敗，請重新查詢' };
+  if (payload.mode === 'returning') {
+    const found = await resolveReturningFamily(payload.lookup?.phone);
+    if (!found) return { error: '家庭資料驗證已失效，請重新輸入手機與 PIN' };
     家庭ID = found.家庭ID;
   } else {
     if (rules.existingOnly) return { error: '本活動只開放已有資料的家庭報名' };
     if (!household.主要聯絡人 || !/^09\d{8}$/.test(household.電話)) return { error: '請填寫聯絡人姓名與正確的手機號碼（09 開頭 10 碼）' };
-    const dup = (await households().all({ fresh: true })).some((h) => normalizePhone(h.電話) === household.電話);
-    if (dup) return { error: '此手機號碼已有家庭資料，請改用「曾經報名過」' };
+    if (await findHousehold(household.電話)) return { error: '此手機號碼已有家庭資料，請改用「曾經報名過」' };
+    // 線上第一次報名要設定 PIN，下次才能帶入資料；同工現場代填可以先不設（家長之後用孩子的姓名與生日驗證再設定）
+    if (payload.pin || !(onSite && isStaff())) {
+      if (!isValidPin(payload.pin ?? '')) return { error: '請設定 4 位數字的 PIN，下次報名時用來帶入資料' };
+      if (payload.pin !== payload.pinConfirm) return { error: '兩次輸入的 PIN 不一致' };
+    }
     家庭ID = newId('家庭ID');
     isNewHousehold = true;
   }
@@ -150,8 +181,11 @@ export async function submitRegistration(payload: RegisterPayload): Promise<Regi
 
   // ── 寫入 ──
   if (isNewHousehold) {
-    await households().append([{ 家庭ID, ...household, 建立時間: now, 更新時間: now }]);
-  } else if (payload.lookup) {
+    await households().ensure();
+    await households().append([
+      { 家庭ID, ...household, 建立時間: now, 更新時間: now, PIN雜湊: payload.pin ? hashPin(payload.pin) : '', PIN錯誤次數: '', PIN鎖定至: '' },
+    ]);
+  } else {
     // 既有家庭可更新 Email / 地址
     const changes: Record<string, string> = { 更新時間: now };
     if (household.Email) changes.Email = household.Email;
@@ -207,6 +241,8 @@ export async function submitRegistration(payload: RegisterPayload): Promise<Regi
     後續活動通知同意: payload.followUpConsent ? '同意' : '不同意',
   }));
   await registrations(event.活動ID).append(rows);
+  // 家長自己第一次報名完成：直接登入，之後回到「曾經報名過」不用再輸入 PIN（同工現場代填不登入）
+  if (isNewHousehold && payload.pin && !(onSite && isStaff())) signInFamily(家庭ID, !!payload.remember);
   // 選課寫入分組成員（每人每門課一列）
   await groupMembers(event.活動ID).append(
     selected.flatMap((m, i) =>

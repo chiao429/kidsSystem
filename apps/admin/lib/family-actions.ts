@@ -6,7 +6,9 @@ import { HouseholdTable, MemberTable, nowString } from '@kids/schema';
 import type { FormResult } from '@kids/ui/client';
 import { households, members } from './tables';
 
-const HOUSEHOLD_FIELDS = (HouseholdTable.updatableBy?.admin ?? []).filter((h) => h !== '更新時間');
+/** PIN 相關欄位不在表單上（只能用「重設 PIN」清空），否則儲存聯絡資料時會被當成空白而清掉 */
+const PIN_FIELDS = ['PIN雜湊', 'PIN錯誤次數', 'PIN鎖定至'] as const;
+const HOUSEHOLD_FIELDS = (HouseholdTable.updatableBy?.admin ?? []).filter((h) => h !== '更新時間' && !(PIN_FIELDS as readonly string[]).includes(h));
 const MEMBER_FIELDS = (MemberTable.updatableBy?.admin ?? []).filter((h) => h !== '更新時間');
 
 /** 表單欄位 name（必須是英文：Next 14 Server Action 會把中文 name 解壞，送來的值變空白） */
@@ -37,6 +39,14 @@ export async function saveHousehold(家庭ID: string, _: FormResult, formData: F
   await households().updateByIds([{ id: 家庭ID, changes }]);
   revalidatePath(`/families/${家庭ID}`);
   return { message: '已儲存家庭資料' };
+}
+
+/** 重設 PIN：清空 PIN 與鎖定，家長下次用孩子的全名＋生日驗證後重新設定 */
+export async function resetHouseholdPin(家庭ID: string) {
+  requireSession({ permission: 'admin' });
+  await households().ensure();
+  await households().updateByIds([{ id: 家庭ID, changes: { PIN雜湊: '', PIN錯誤次數: '0', PIN鎖定至: '', 更新時間: nowString() } }]);
+  revalidatePath(`/families/${家庭ID}`);
 }
 
 export async function saveMember(成員ID: string, _: FormResult, formData: FormData): Promise<FormResult> {
