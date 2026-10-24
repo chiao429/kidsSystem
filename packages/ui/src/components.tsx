@@ -131,6 +131,7 @@ export function Shell({
   title,
   brand,
   nav = [],
+  footerNav = [],
   user,
   logoutAction,
   staffHome = '/staff',
@@ -139,6 +140,8 @@ export function Shell({
   title: string;
   brand: string;
   nav?: NavItem[];
+  /** 顯示在左側選單底部的入口 */
+  footerNav?: NavItem[];
   /** 跨系統的同工入口（站內絕對路徑）；傳 null 不顯示 */
   staffHome?: string | null;
   user?: string;
@@ -172,8 +175,17 @@ export function Shell({
             </a>
           )}
         </nav>
+        {footerNav.length > 0 && (
+          <nav className="mt-6 border-t border-white/20 pt-4 text-sm">
+            {footerNav.map((n) => (
+              <a key={n.href} href={withBase(n.href)} className="block rounded-xl px-4 py-2 font-medium text-white/80 transition hover:bg-white/15 hover:text-white">
+                {n.label}
+              </a>
+            ))}
+          </nav>
+        )}
         {user && (
-          <div className="mt-6 border-t border-white/20 pt-4">
+          <div className={footerNav.length > 0 ? 'mt-2' : 'mt-6 border-t border-white/20 pt-4'}>
             <a href={withBase('/password')} className="block rounded-xl px-4 py-2 text-sm text-white/80 hover:bg-white/15 hover:text-white">改密碼</a>
             <form action={logoutAction}>
               <button className="w-full rounded-xl px-4 py-2 text-left text-sm text-white/80 hover:bg-white/15 hover:text-white">登出</button>
