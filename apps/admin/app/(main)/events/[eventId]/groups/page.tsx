@@ -1,12 +1,13 @@
 import Link from 'next/link';
-import { Alert, Badge, Card, Empty, Field, Input, Select, Table, withBase } from '@kids/ui';
+import { Alert, Badge, Card, Empty, Field, Input, Select, Table } from '@kids/ui';
 import { ActionForm, SubmitButton } from '@kids/ui/client';
-import { GroupRole, GroupType, LEARNER_ROLES, RegistrationStatus, hasGroupType, type Group } from '@kids/schema';
+import { GRADE_OPTIONS, GroupRole, GroupType, LEARNER_ROLES, RegistrationStatus, hasGroupType, type Group } from '@kids/schema';
 import { getEvent } from '@/lib/events';
 import { addGroupLeader, removeGroupMember, saveGroup } from '@/lib/group-actions';
 import { loadGroupState } from '@/lib/groups';
 import { accounts, registrations } from '@/lib/tables';
-import { CourseImport } from '@/components/CourseImport';
+import { CourseEditor } from '@/components/CourseEditor';
+import { courseFromGroup } from '@/lib/course-fields';
 
 export default async function GroupsPage({ params, searchParams }: { params: { eventId: string }; searchParams: { type?: string } }) {
   const event = await getEvent(params.eventId);
@@ -22,14 +23,17 @@ export default async function GroupsPage({ params, searchParams }: { params: { e
 
   return (
     <>
-      <div className="flex gap-2">
-        {[GroupType.Course, GroupType.Team].map((t) => (
-          <Link key={t} href={`${base}?type=${encodeURIComponent(t)}`} className={`rounded-full border px-3 py-1 text-sm ${t === type ? 'border-[#315bc7] bg-[#315bc7] text-white' : 'border-gray-300 bg-white'}`}>
-            {t}
-          </Link>
-        ))}
-      </div>
-      {!hasGroupType(event.rules, type) && <Alert tone="amber">此活動尚未啟用「{type}」，可在「設定」勾選後，報名、報到與點名才會使用。</Alert>}
+      {/* 啟用小隊時才需要在課程／小隊之間切換 */}
+      {hasGroupType(event.rules, GroupType.Team) && (
+        <div className="flex gap-2">
+          {[GroupType.Course, GroupType.Team].map((t) => (
+            <Link key={t} href={`${base}?type=${encodeURIComponent(t)}`} className={`rounded-full border px-3 py-1 text-sm ${t === type ? 'border-[#315bc7] bg-[#315bc7] text-white' : 'border-gray-300 bg-white'}`}>
+              {t}
+            </Link>
+          ))}
+        </div>
+      )}
+      {!hasGroupType(event.rules, type) && <Alert tone="amber">此活動尚未啟用「{type}」，到「設定」→「進階設定」的「使用的分組」勾選後，報名、報到與點名才會使用。</Alert>}
       {!isCourse && (
         <Alert tone="blue">
           新增小隊與分隊請到資料整理系統操作；這裡可修改名稱、區域與說明，或到「
@@ -40,96 +44,53 @@ export default async function GroupsPage({ params, searchParams }: { params: { e
         </Alert>
       )}
 
-      <Card title={`${type}（${list.length}）`}>
-        {list.length === 0 && <Empty>尚未建立{type}</Empty>}
-        <div className="space-y-2">
-          {[...list, ...(isCourse ? [null] : [])].map((g) => (
-            <ActionForm key={g?.分組ID ?? `new-${list.length}`} action={saveGroup.bind(null, params.eventId, g?.分組ID ?? '', type)} className="grid items-end gap-2 border-b pb-2 sm:grid-cols-8">
-              <Field label={g ? '名稱' : `新增${type}`}>
-                <Input name="name" defaultValue={g?.名稱} />
-              </Field>
-              {isCourse ? (
-                <>
-                  <Field label="代碼" hint="跨活動比較用">
-                    <Input name="code" defaultValue={g?.代碼} />
-                  </Field>
-                  <Field label="名額">
-                    <Input name="capacity" type="number" min={0} defaultValue={g?.名額} />
-                  </Field>
-                  <Field label="課程分組">
-                    <Input name="courseGroup" defaultValue={g?.課程分組} placeholder="角落活動" />
-                  </Field>
-                  <Field label="適用對象">
-                    <Input name="audience" defaultValue={g?.適用對象} placeholder="學齡前" />
-                  </Field>
-                  <Field label="最低年級">
-                    <Input name="minGrade" defaultValue={g?.最低年級} placeholder="小班" />
-                  </Field>
-                  <Field label="最高年級">
-                    <Input name="maxGrade" defaultValue={g?.最高年級} placeholder="大班" />
-                  </Field>
-                  <Field label="最低年齡">
-                    <Input name="minAge" type="number" min={0} step="0.1" defaultValue={g?.最低年齡} />
-                  </Field>
-                  <Field label="最高年齡">
-                    <Input name="maxAge" type="number" min={0} step="0.1" defaultValue={g?.最高年齡} />
-                  </Field>
-                  <Field label="材料費">
-                    <Input name="fee" type="number" min={0} step={1} defaultValue={g?.材料費} />
-                  </Field>
-                  <Field label="報名開始">
-                    <Input name="courseStart" type="datetime-local" defaultValue={g?.課程報名開始} />
-                  </Field>
-                  <Field label="報名截止">
-                    <Input name="courseEnd" type="datetime-local" defaultValue={g?.課程報名截止} />
-                  </Field>
-                  <Field label="注意事項">
-                    <Input name="notice" defaultValue={g?.注意事項} />
-                  </Field>
-                  <label className="flex items-center gap-2 pb-2 text-sm">
-                    <input type="checkbox" name="allowOnSite" defaultChecked={g?.允許現場報名 !== 'N'} />
-                    允許現場報名
-                  </label>
-                </>
-              ) : (
-                <Field label="區域">
-                  <Input name="area" defaultValue={g?.區域} />
+      {isCourse ? (
+        <CourseEditor
+          eventId={params.eventId}
+          grades={[...GRADE_OPTIONS]}
+          initial={[...state.courses]
+            .sort((x, y) => (Number(x.排序) || 0) - (Number(y.排序) || 0))
+            .map((g) => ({
+              id: g.分組ID,
+              draft: courseFromGroup(g),
+              learners: countOf(g),
+              locked: state.members.some((m) => m.分組ID === g.分組ID && LEARNER_ROLES.includes(m.角色)),
+            }))}
+        />
+      ) : (
+        <Card title={`${type}（${list.length}）`}>
+          {list.length === 0 && <Empty>尚未建立{type}</Empty>}
+          <div className="space-y-2">
+            {list.map((g) => (
+              <ActionForm key={g.分組ID} action={saveGroup.bind(null, params.eventId, g.分組ID, type)} className="grid items-end gap-2 border-b pb-2 sm:grid-cols-8">
+                <Field label="名稱">
+                  <Input name="name" defaultValue={g.名稱} />
                 </Field>
-              )}
-              <Field label="說明">
-                <Input name="note" defaultValue={g?.說明} />
-              </Field>
-              <Field label="排序">
-                <Input name="order" type="number" defaultValue={g?.排序} />
-              </Field>
-              <Field label="狀態">
-                <Select name="status" defaultValue={g?.狀態 || '啟用'}>
-                  <option>啟用</option>
-                  <option>停用</option>
-                </Select>
-              </Field>
-              <div className="text-sm text-gray-600">
-                {g && (
-                  <>
-                    {countOf(g)}
-                    {g.名額 ? ` / ${g.名額}` : ''} 人
-                    {g.名額 && countOf(g) >= Number(g.名額) && <Badge tone="red">額滿</Badge>}
-                  </>
-                )}
-              </div>
-              <SubmitButton size="sm">{g ? '儲存' : '新增'}</SubmitButton>
-            </ActionForm>
-          ))}
-        </div>
-      </Card>
-
-      {isCourse && (
-        <>
-          <CourseImport eventId={params.eventId} />
-          <p className="text-sm text-gray-600">
-            <a href={withBase('/templates/course-import-template.csv')} download className="text-[#315bc7] underline">下載課程匯入範本 CSV</a>
-          </p>
-        </>
+                <Field label="區域">
+                  <Input name="area" defaultValue={g.區域} />
+                </Field>
+                <Field label="說明">
+                  <Input name="note" defaultValue={g.說明} />
+                </Field>
+                <Field label="排序">
+                  <Input name="order" type="number" defaultValue={g.排序} />
+                </Field>
+                <Field label="狀態">
+                  <Select name="status" defaultValue={g.狀態 || '啟用'}>
+                    <option>啟用</option>
+                    <option>停用</option>
+                  </Select>
+                </Field>
+                <div className="text-sm text-gray-600">
+                  {countOf(g)}
+                  {g.名額 ? ` / ${g.名額}` : ''} 人
+                  {g.名額 && countOf(g) >= Number(g.名額) && <Badge tone="red">額滿</Badge>}
+                </div>
+                <SubmitButton size="sm">儲存</SubmitButton>
+              </ActionForm>
+            ))}
+          </div>
+        </Card>
       )}
 
       {list.length > 0 && (
