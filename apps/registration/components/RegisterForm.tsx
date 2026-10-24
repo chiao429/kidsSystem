@@ -249,7 +249,7 @@ export function RegisterForm({
                             checked={m.courses.includes(c.id)}
                             onChange={(e) =>
                               updateMember(i, {
-                                courses: e.target.checked ? [...m.courses, c.id] : m.courses.filter((x) => x !== c.id),
+                                courses: e.target.checked ? (maxCoursesPerMember === 1 ? [c.id] : [...m.courses, c.id]) : m.courses.filter((x) => x !== c.id),
                               })
                             }
                           />

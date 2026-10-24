@@ -49,6 +49,7 @@ export async function saveGroup(eventId: string, 分組ID: string, 類型: strin
   if (changes.最低年齡 && changes.最高年齡 && Number(changes.最低年齡) > Number(changes.最高年齡)) return { error: '最低年齡不可高於最高年齡' };
   if (changes.課程報名開始 && changes.課程報名截止 && new Date(changes.課程報名開始) > new Date(changes.課程報名截止)) return { error: '課程報名截止不可早於開始' };
   const table = groups(event.活動ID);
+  await table.ensure();
   const all = await table.all({ fresh: true });
   if (all.some((g) => g.類型 === 類型 && g.名稱 === changes.名稱 && g.分組ID !== 分組ID)) return { error: `已有同名${類型}` };
   if (分組ID) {

@@ -30,6 +30,13 @@ function readEventForm(formData: FormData) {
     活動試算表: s('sheet'),
     開始日期: s('startDate'),
     結束日期: s('endDate'),
+    活動時間: s('eventTime'),
+    地點: s('venue'),
+    報到時間: s('checkInTime'),
+    繳費時間: s('paymentTime'),
+    活動說明: s('description'),
+    適用對象: s('audience'),
+    報名提醒: s('reminder'),
     報名開放: s('regOpen'),
     報名截止: s('regClose'),
     報名規則: JSON.stringify(rules),
@@ -60,6 +67,7 @@ export async function updateEvent(eventId: string, _: FormResult, formData: Form
   const session = requireSession({ permission: 'admin', eventId });
   const { 活動ID: _id, ...changes } = readEventForm(formData);
   if (!changes.名稱 || !changes.活動試算表) return { error: '請填寫名稱與活動試算表連結' };
+  await events().ensure();
   await events().updateByIds([{ id: eventId, changes }]);
   const event = await getEvent(eventId);
   await writeLog(event.活動ID, session, '更新活動', eventId);

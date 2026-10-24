@@ -40,9 +40,10 @@ export function checkMember(
     if (age != null && g.最高年齡 && age > Number(g.最高年齡)) return `${name}：不符合課程「${g.名稱}」的年齡限制`;
     const start = parseCourseDate(g.課程報名開始);
     const end = parseCourseDate(g.課程報名截止);
+    const allowOnSite = (rules.allowOnSiteCourseRegistration ?? true) && courseAllowsOnSite(g);
     if (start && now < start) return `${name}：課程「${g.名稱}」尚未開放報名`;
-    if (end && now > end && !(options.onSite && rules.allowOnSiteCourseRegistration && courseAllowsOnSite(g))) return `${name}：課程「${g.名稱}」報名已截止`;
-    if (options.onSite && rules.allowOnSiteCourseRegistration === false && !courseAllowsOnSite(g)) return `${name}：課程「${g.名稱}」不允許現場報名`;
+    if (end && now > end && !(options.onSite && allowOnSite)) return `${name}：課程「${g.名稱}」報名已截止`;
+    if (options.onSite && !allowOnSite) return `${name}：課程「${g.名稱}」不允許現場報名`;
     const cap = Number(g.名額) || 0;
     if (cap && (courseCounts.get(id) ?? 0) >= cap) return `${name}：課程「${g.名稱}」已額滿`;
   }

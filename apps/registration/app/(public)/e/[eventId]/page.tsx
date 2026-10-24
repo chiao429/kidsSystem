@@ -22,6 +22,9 @@ export default async function EventPage({ params }: { params: { eventId: string 
             {event.開始日期}
             {event.結束日期 && event.結束日期 !== event.開始日期 && ` ~ ${event.結束日期}`}
           </dd>
+          {event.活動時間 && <><dt className="text-gray-500">時間</dt><dd>{event.活動時間}</dd></>}
+          {event.地點 && <><dt className="text-gray-500">地點</dt><dd>{event.地點}</dd></>}
+          {event.適用對象 && <><dt className="text-gray-500">適用對象</dt><dd>{event.適用對象}</dd></>}
           <dt className="text-gray-500">年級</dt>
           <dd>{gradeText}</dd>
           {courses.length > 0 && (
@@ -38,6 +41,8 @@ export default async function EventPage({ params }: { params: { eventId: string 
           )}
         </dl>
         {event.備註 && <p className="mt-3 whitespace-pre-line text-sm text-gray-700">{event.備註}</p>}
+        {event.活動說明 && <p className="mt-3 whitespace-pre-line text-sm text-gray-700">{event.活動說明}</p>}
+        {event.報名提醒 && <p className="mt-2 rounded bg-amber-50 p-2 text-sm text-amber-800">提醒：{event.報名提醒}</p>}
       </Card>
       {w.open ? (
         <div className="grid gap-3 sm:grid-cols-2">
@@ -54,7 +59,7 @@ export default async function EventPage({ params }: { params: { eventId: string 
         <Alert tone="amber">{w.reason}</Alert>
       )}
       <p className="text-center text-sm">
-        <Link href={`/e/${event.活動ID}/qr`} className="text-green-700 underline">
+        <Link href={`/e/${event.活動ID}/qr`} className="text-[#315bc7] underline">
           已經報名了？以手機號碼查詢報到 QR code
         </Link>
       </p>

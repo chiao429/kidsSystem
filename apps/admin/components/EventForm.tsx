@@ -54,6 +54,18 @@ export function EventForm({
       <Field label="結束日期">
         <Input type="date" name="endDate" defaultValue={event?.結束日期} />
       </Field>
+      <Field label="活動時間">
+        <Input name="eventTime" defaultValue={event?.活動時間} placeholder="09:00–16:00" />
+      </Field>
+      <Field label="地點">
+        <Input name="venue" defaultValue={event?.地點} />
+      </Field>
+      <Field label="報到時間">
+        <Input name="checkInTime" defaultValue={event?.報到時間} />
+      </Field>
+      <Field label="繳費時間">
+        <Input name="paymentTime" defaultValue={event?.繳費時間} />
+      </Field>
       <Field label="報名開放">
         <Input type="datetime-local" name="regOpen" defaultValue={toLocal(event?.報名開放)} />
       </Field>
@@ -107,6 +119,17 @@ export function EventForm({
         </div>
       </fieldset>
 
+      <div className="sm:col-span-2">
+        <Field label="活動說明">
+          <Textarea name="description" rows={3} defaultValue={event?.活動說明} />
+        </Field>
+      </div>
+      <Field label="適用對象">
+        <Input name="audience" defaultValue={event?.適用對象} />
+      </Field>
+      <Field label="報名提醒">
+        <Input name="reminder" defaultValue={event?.報名提醒} />
+      </Field>
       <div className="sm:col-span-2">
         <Field label="備註">
           <Textarea name="note" rows={2} defaultValue={event?.備註} />

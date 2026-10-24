@@ -6,7 +6,7 @@ import { GroupRole, GroupType, RegistrationStatus, gradeRank, newId, nowString }
 import { getEvent } from '@/lib/events';
 import { writeLog } from '@/lib/log';
 import { loadGroupState } from '@/lib/groups';
-import { groupMembers, registrations } from '@/lib/tables';
+import { groupMembers, households, members, registrations } from '@/lib/tables';
 
 async function updateStatus(eventId: string, formData: FormData) {
   'use server';
@@ -38,8 +38,17 @@ async function updateCourses(eventId: string, 報名ID: string, formData: FormDa
   const reg = (await registrations(event.活動ID).all({ fresh: true })).find((r) => r.報名ID === 報名ID);
   if (!reg) return;
   const state = await loadGroupState(event.活動ID, true);
-  const picked = new Set(formData.getAll('courses').map(String).filter((id) => state.courses.some((c) => c.分組ID === id)));
+  const picked = new Set(formData.getAll('courses').map(String).filter((id) => state.courses.some((c) => c.分組ID === id && c.狀態 !== '停用')));
+  if (event.rules.maxCoursesPerMember && picked.size > event.rules.maxCoursesPerMember) return;
   const current = state.coursesOf(報名ID, reg.成員ID);
+  const activeRegIds = new Set((await registrations(event.活動ID).all()).filter((r) => r.狀態 !== RegistrationStatus.Cancelled).map((r) => r.報名ID));
+  for (const id of picked) {
+    const course = state.byId.get(id);
+    const count = state.members.filter((m) => m.分組ID === id && m.角色 === '學員' && m.報名ID !== 報名ID && activeRegIds.has(m.報名ID)).length;
+    if (course?.名額 && count >= Number(course.名額) && !current.some((m) => m.分組ID === id)) return;
+    if (course?.最低年級 && gradeRank(reg.年級) < gradeRank(course.最低年級)) return;
+    if (course?.最高年級 && gradeRank(reg.年級) > gradeRank(course.最高年級)) return;
+  }
   const removeIds = current.filter((m) => !picked.has(m.分組ID)).map((m) => m.分組成員ID);
   const now = nowString();
   const add = [...picked]
@@ -61,16 +70,23 @@ export default async function RegistrationsPage({
   searchParams,
 }: {
   params: { eventId: string };
-  searchParams: { q?: string; status?: string; edit?: string };
+  searchParams: { q?: string; status?: string; course?: string; edit?: string };
 }) {
   const event = await getEvent(params.eventId);
-  const [all, state] = await Promise.all([registrations(event.活動ID).all(), loadGroupState(event.活動ID)]);
+  const [all, state, allMembers, allHouseholds] = await Promise.all([registrations(event.活動ID).all(), loadGroupState(event.活動ID), members().all(), households().all()]);
+  const memberById = new Map(allMembers.map((m) => [m.成員ID, m]));
+  const householdById = new Map(allHouseholds.map((h) => [h.家庭ID, h]));
   const courseText = (r: (typeof all)[number]) => state.courseNames(r.報名ID, r.成員ID);
   const editing = all.find((r) => r.報名ID === searchParams.edit);
   const q = (searchParams.q ?? '').trim();
   const rows = all
     .filter((r) => !searchParams.status || r.狀態 === searchParams.status)
-    .filter((r) => !q || [r.姓名, r.報名ID, r.家庭ID, courseText(r)].some((v) => v.includes(q)))
+    .filter((r) => !searchParams.course || state.coursesOf(r.報名ID, r.成員ID).some((m) => m.分組ID === searchParams.course))
+    .filter((r) => {
+      const m = memberById.get(r.成員ID);
+      const h = householdById.get(r.家庭ID);
+      return !q || [r.姓名, r.報名ID, r.家庭ID, courseText(r), m?.學校 ?? '', h?.主要聯絡人 ?? '', h?.電話 ?? '', h?.Email ?? ''].some((v) => v.includes(q));
+    })
     .sort((a, b) => gradeRank(a.年級) - gradeRank(b.年級) || a.報名時間.localeCompare(b.報名時間));
   const count = (s: string) => all.filter((r) => r.狀態 === s).length;
 
@@ -105,7 +121,11 @@ export default async function RegistrationsPage({
       )}
       <Card title={`報名名單（${rows.length}）`}>
         <form className="mb-3 flex flex-wrap gap-2">
-          <Input name="q" placeholder="搜尋姓名、報名ID、課程" defaultValue={q} className="max-w-xs" />
+          <Input name="q" placeholder="搜尋姓名、報名ID、課程、家長、電話、學校" defaultValue={q} className="max-w-xs" />
+          <Select name="course" defaultValue={searchParams.course ?? ''} className="max-w-[10rem]">
+            <option value="">全部課程</option>
+            {state.courses.map((c) => <option key={c.分組ID} value={c.分組ID}>{c.名稱}</option>)}
+          </Select>
           <Select name="status" defaultValue={searchParams.status ?? ''} className="max-w-[10rem]">
             <option value="">全部狀態</option>
             {Object.values(RegistrationStatus).map((s) => (
@@ -127,23 +147,28 @@ export default async function RegistrationsPage({
               </Select>
               <SubmitButton size="sm">套用</SubmitButton>
             </div>
-            <Table head={['', '姓名', '年級', '類型', '課程', '狀態', '備註', '來源', '報名時間', '報名ID']}>
+            <Table head={['', '姓名', '性別', '生日', '年級', '學校', '家長 / 電話', 'Email', '課程', '材料費', '狀態', '備註', '來源', '報名時間', '報名ID']}>
               {rows.map((r) => (
                 <tr key={r.報名ID}>
                   <td className="px-2 py-2">
                     <input type="checkbox" name="ids" value={r.報名ID} />
                   </td>
                   <td className="px-2 py-2 font-medium">{r.姓名}</td>
+                  <td className="px-2 py-2">{memberById.get(r.成員ID)?.性別}</td>
+                  <td className="px-2 py-2">{memberById.get(r.成員ID)?.生日}</td>
                   <td className="px-2 py-2">{r.年級}</td>
-                  <td className="px-2 py-2">{r.報名類型}</td>
+                  <td className="px-2 py-2">{memberById.get(r.成員ID)?.學校}</td>
+                  <td className="px-2 py-2">{householdById.get(r.家庭ID)?.主要聯絡人} / {householdById.get(r.家庭ID)?.電話}</td>
+                  <td className="px-2 py-2">{householdById.get(r.家庭ID)?.Email}</td>
                   <td className="px-2 py-2">
                     {courseText(r)}
                     {state.courses.length > 0 && (
-                      <a href={`?edit=${r.報名ID}`} className="ml-1 text-xs text-purple-700 underline">
+                      <a href={`?edit=${r.報名ID}`} className="ml-1 text-xs text-[#315bc7] underline">
                         調整
                       </a>
                     )}
                   </td>
+                  <td className="px-2 py-2">{state.coursesOf(r.報名ID, r.成員ID).map((m) => state.byId.get(m.分組ID)?.材料費).filter(Boolean).join('、')}</td>
                   <td className="px-2 py-2">
                     <Badge tone={tone[r.狀態 as keyof typeof tone] ?? 'gray'}>{r.狀態}</Badge>
                   </td>

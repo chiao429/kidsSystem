@@ -9,7 +9,7 @@ const PRESENT = ['出席', '遲到'];
 export const DATASETS = {
   roster: {
     label: '報名名單（含家庭、小隊、報到）',
-    columns: ['序號', '姓名', '性別', '年級', '學校', '生日', '家長', '電話', 'Email', '地址', '特殊需求', '課程', '報名狀態', '報名類型', '來源', '報名時間', '小隊', '報到狀態', '報到時間', '晚到', '已聯繫'],
+    columns: ['序號', '姓名', '性別', '生日', '年級', '學校', '家長', '電話', 'Email', '地址', '特殊需求', '課程分組', '課程', '材料費', '應收費用', '照片影片公開同意', '後續活動通知同意', '報名狀態', '報名類型', '來源', '報名時間', '小隊', '報到狀態', '報到時間', '晚到', '已聯繫'],
   },
   groupMembers: {
     label: '分組成員明細（每人每組一列，適合樞紐分析）',
@@ -44,6 +44,9 @@ export async function buildDataset(eventId: string, key: DatasetKey, eventName =
         const mem = m.get(r.成員ID);
         const hou = h.get(r.家庭ID);
         const ci = c.get(r.報名ID);
+        const courseMembers = state.coursesOf(r.報名ID, r.成員ID);
+        const fees = courseMembers.map((x) => Number(state.byId.get(x.分組ID)?.材料費) || 0);
+        const courseGroups = courseMembers.map((x) => state.byId.get(x.分組ID)?.課程分組 ?? '').filter(Boolean);
         return {
           序號: r.序號,
           姓名: r.姓名,
@@ -56,7 +59,12 @@ export async function buildDataset(eventId: string, key: DatasetKey, eventName =
           Email: hou?.Email ?? '',
           地址: hou?.地址 ?? '',
           特殊需求: mem?.特殊需求 ?? '',
+          課程分組: [...new Set(courseGroups)].join('、'),
           課程: state.courseNames(r.報名ID, r.成員ID),
+          材料費: fees.filter(Boolean).join('、'),
+          應收費用: String(fees.reduce((sum, fee) => sum + fee, 0)),
+          照片影片公開同意: r.照片影片公開同意,
+          後續活動通知同意: r.後續活動通知同意,
           報名狀態: r.狀態,
           報名類型: r.報名類型,
           來源: r.來源,

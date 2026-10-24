@@ -1,11 +1,12 @@
 import Link from 'next/link';
-import { Alert, Badge, Card, Empty, Field, Input, Select, Table } from '@kids/ui';
+import { Alert, Badge, Card, Empty, Field, Input, Select, Table, withBase } from '@kids/ui';
 import { ActionForm, SubmitButton } from '@kids/ui/client';
 import { GroupRole, GroupType, LEARNER_ROLES, RegistrationStatus, hasGroupType, type Group } from '@kids/schema';
 import { getEvent } from '@/lib/events';
 import { addGroupLeader, removeGroupMember, saveGroup } from '@/lib/group-actions';
 import { loadGroupState } from '@/lib/groups';
 import { accounts, registrations } from '@/lib/tables';
+import { CourseImport } from '@/components/CourseImport';
 
 export default async function GroupsPage({ params, searchParams }: { params: { eventId: string }; searchParams: { type?: string } }) {
   const event = await getEvent(params.eventId);
@@ -23,7 +24,7 @@ export default async function GroupsPage({ params, searchParams }: { params: { e
     <>
       <div className="flex gap-2">
         {[GroupType.Course, GroupType.Team].map((t) => (
-          <Link key={t} href={`${base}?type=${encodeURIComponent(t)}`} className={`rounded-full border px-3 py-1 text-sm ${t === type ? 'border-purple-600 bg-purple-600 text-white' : 'border-gray-300 bg-white'}`}>
+          <Link key={t} href={`${base}?type=${encodeURIComponent(t)}`} className={`rounded-full border px-3 py-1 text-sm ${t === type ? 'border-[#315bc7] bg-[#315bc7] text-white' : 'border-gray-300 bg-white'}`}>
             {t}
           </Link>
         ))}
@@ -121,6 +122,15 @@ export default async function GroupsPage({ params, searchParams }: { params: { e
           ))}
         </div>
       </Card>
+
+      {isCourse && (
+        <>
+          <CourseImport eventId={params.eventId} />
+          <p className="text-sm text-gray-600">
+            <a href={withBase('/templates/course-import-template.csv')} download className="text-[#315bc7] underline">下載課程匯入範本 CSV</a>
+          </p>
+        </>
+      )}
 
       {list.length > 0 && (
         <Card title="負責人">

@@ -27,10 +27,7 @@ export class SheetsStore<T extends TableDef> implements TableStore<T> {
     if (!id) throw new Error(`分頁「${this.def.tab}」沒有設定試算表 ID`);
     const values = await getBackend().values(id, this.def.tab);
     const headerRow = (values[0] ?? []).map((h) => String(h).trim());
-    const missing = this.def.headers.filter((h) => !headerRow.includes(h));
-    if (missing.length > 0) {
-      throw new Error(`分頁「${this.def.tab}」缺少欄位：${missing.join('、')}（請到後台執行「建立 / 檢查分頁」）`);
-    }
+    // 舊資料相容：缺少的新欄位讀作空白；寫入前由 ensure() 補上標題列。
 
     const idCol = headerRow.indexOf(this.def.idColumn);
     const rows: RowOf<T>[] = [];
@@ -39,7 +36,8 @@ export class SheetsStore<T extends TableDef> implements TableStore<T> {
       const rid = String(raw[idCol] ?? '').trim();
       if (!rid) return;
       const row = {} as Record<string, string>;
-      headerRow.forEach((h, c) => {
+      this.def.headers.forEach((h) => {
+        const c = headerRow.indexOf(h);
         row[h] = raw[c] == null ? '' : String(raw[c]);
       });
       rows.push(row as RowOf<T>);
