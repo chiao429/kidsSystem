@@ -31,11 +31,6 @@ export default async function HomePage() {
           </ul>
         )}
       </Card>
-      <p className="text-center text-xs">
-        <a href="/staff" className="text-gray-400 hover:underline">
-          同工入口
-        </a>
-      </p>
     </>
   );
 }
