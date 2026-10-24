@@ -118,8 +118,8 @@ export interface LoginState {
   redirect?: string;
 }
 
-/** 給 LoginForm 用的 Server Action 主體；表單可帶 next（登入後返回的路徑） */
-export async function loginWithForm(formData: FormData, permission: Permission, redirectTo = '/'): Promise<LoginState> {
+/** 給 LoginForm 用的 Server Action 主體；表單可帶 next（登入後返回的路徑）。permission 為 null 表示任何有效帳號皆可（同工入口） */
+export async function loginWithForm(formData: FormData, permission: Permission | null, redirectTo = '/'): Promise<LoginState> {
   const account = String(formData.get('account') ?? '').trim();
   const password = String(formData.get('password') ?? '');
   if (!account || !password) return { error: '請輸入帳號與密碼' };
@@ -127,7 +127,7 @@ export async function loginWithForm(formData: FormData, permission: Permission, 
   const session = await authenticate(account, password);
   if (session === 'disabled') return { error: '此帳號已停用，請聯絡系統管理員' };
   if (!session) return { error: '帳號或密碼錯誤' };
-  if (!session.mustChangePassword && !session.permissions.includes(permission)) return { error: '此帳號沒有使用本系統的權限' };
+  if (permission && !session.mustChangePassword && !session.permissions.includes(permission)) return { error: '此帳號沒有使用本系統的權限' };
 
   cookies().set(COOKIE, encodeSession(session, secret()), {
     httpOnly: true,
