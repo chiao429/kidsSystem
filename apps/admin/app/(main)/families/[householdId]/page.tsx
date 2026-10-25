@@ -3,12 +3,12 @@ import { notFound } from 'next/navigation';
 import { Badge, Card, Field, Input, Select, Textarea } from '@kids/ui';
 import { ActionForm, SubmitButton } from '@kids/ui/client';
 import { requireSession } from '@kids/auth/next';
-import { GRADE_OPTIONS, MemberType } from '@kids/schema';
+import { MemberType, gradeChoices } from '@kids/schema';
 import { resetHouseholdPin, saveHousehold, saveMember } from '@/lib/family-actions';
 import { households, members } from '@/lib/tables';
 
 export default async function FamilyPage({ params }: { params: { householdId: string } }) {
-  requireSession({ permission: 'admin' });
+  requireSession({ permission: 'families' });
   const h = await households().findById(params.householdId, { fresh: true });
   if (!h) notFound();
   const mm = (await members().all({ fresh: true })).filter((m) => m.家庭ID === h.家庭ID);
@@ -69,7 +69,7 @@ export default async function FamilyPage({ params }: { params: { householdId: st
             <Field label="年級">
               <Select name="grade" defaultValue={m.年級}>
                 <option value=""></option>
-                {GRADE_OPTIONS.map((g) => (
+                {gradeChoices(m.年級).map((g) => (
                   <option key={g}>{g}</option>
                 ))}
               </Select>

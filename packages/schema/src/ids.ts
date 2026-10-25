@@ -11,6 +11,7 @@ const PREFIX = {
   問卷ID: 'Q',
   回覆ID: 'QR',
   日誌ID: 'L',
+  簽名檔ID: 'SG',
 } as const;
 
 /** 產生不需中央計數器的唯一 ID，例：R-20261009-K3F9Q2 */

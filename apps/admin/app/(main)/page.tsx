@@ -39,7 +39,7 @@ export default async function HomePage({ searchParams }: { searchParams: { archi
     return (
       <Alert tone="amber">
         無法讀取活動清單：{e instanceof Error ? e.message : String(e)}。
-        {session.permissions.includes('accounts') && (
+        {session.permissions.includes('setup') && (
           <>
             {' '}請先到{' '}
             <Link href="/setup" className="underline">
@@ -123,6 +123,11 @@ export default async function HomePage({ searchParams }: { searchParams: { archi
                     <Link href={`/events/${e.活動ID}`} className={buttonClass('secondary', 'sm')}>
                       管理
                     </Link>
+                    {canManage && (
+                      <Link href={`/events/new?from=${e.活動ID}`} className={buttonClass('ghost', 'sm')}>
+                        複製
+                      </Link>
+                    )}
                     {canManage && (
                       <ConfirmById id={e.活動ID} label="刪除" action={archiveEvent.bind(null, e.活動ID)} danger="刪除後會移到「已封存」，報名資料都會保留，可以再還原。" />
                     )}

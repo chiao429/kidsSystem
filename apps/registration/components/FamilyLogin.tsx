@@ -10,7 +10,7 @@ const pinInput = { inputMode: 'numeric' as const, autoComplete: 'off', maxLength
 const digits = (v: string) => v.replace(/\D/g, '').slice(0, 4);
 
 /**
- * 「曾經報名過」的登入：手機＋4 位數 PIN。
+ * 「家長登入」：：手機＋4 位數 PIN。
  * 忘記 PIN 或還沒設定（舊資料）→ 用任一位孩子的全名＋生日驗證 → 設定新 PIN。
  * remembered：這台裝置記住的家庭，可直接繼續。
  */
@@ -97,13 +97,13 @@ export function FamilyLogin({ remembered, onVerified }: { remembered?: { name: s
             <Field label="家長手機號碼" required>
               <Input inputMode="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required />
             </Field>
-            <Field label="PIN（4 位數字）" hint="第一次報名時設定的 PIN" required>
+            <Field label="PIN（4 位數字）" hint="初次報名時設定的 PIN" required>
               <Input {...pinInput} value={pin} onChange={(e) => setPin(digits(e.target.value))} required />
             </Field>
             {rememberBox}
             <div className="flex flex-wrap items-center gap-3">
               <Button type="submit" disabled={pending || !phone || pin.length !== 4}>
-                {pending ? '驗證中…' : '帶入家庭資料'}
+                {pending ? '驗證中…' : '送出'}
               </Button>
               <button
                 type="button"

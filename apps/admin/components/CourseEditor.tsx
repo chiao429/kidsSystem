@@ -41,6 +41,8 @@ export function CourseEditor({ eventId, initial, grades }: { eventId: string; in
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  // 放棄變更的確認視窗（瀏覽器的 confirm() 在部分環境不支援，改用頁面內視窗）
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [serverErrors, setServerErrors] = useState<Map<string, string[]>>(new Map());
   const [pending, startTransition] = useTransition();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -92,7 +94,7 @@ export function CourseEditor({ eventId, initial, grades }: { eventId: string; in
   };
 
   const discard = () => {
-    if (!window.confirm(`確定放棄 ${dirty.length} 筆未儲存的變更？`)) return;
+    setConfirmDiscard(false);
     setRows(toRows(initial));
     setServerErrors(new Map());
     setError('');
@@ -163,6 +165,23 @@ export function CourseEditor({ eventId, initial, grades }: { eventId: string; in
 
   return (
     <div className="space-y-3">
+      {confirmDiscard && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="alertdialog" aria-modal="true" aria-labelledby="discard-text">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-xl">
+            <p id="discard-text" className="text-lg font-bold">
+              確定放棄 {dirty.length} 筆未儲存的變更？
+            </p>
+            <div className="mt-6 flex justify-end gap-2">
+              <Button variant="secondary" autoFocus onClick={() => setConfirmDiscard(false)}>
+                返回
+              </Button>
+              <Button variant="danger" onClick={discard}>
+                放棄變更
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* 儲存列：捲動時固定在上方 */}
       <div className="sticky top-16 z-10 flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur">
         <span className="text-sm font-semibold text-gray-800">課程（{live.length}）</span>
@@ -183,7 +202,7 @@ export function CourseEditor({ eventId, initial, grades }: { eventId: string; in
           </a>
           <input ref={fileInput} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={(e) => e.target.files?.[0] && void importFile(e.target.files[0])} />
           {dirty.length > 0 && (
-            <Button variant="ghost" size="sm" onClick={discard} disabled={pending}>
+            <Button variant="ghost" size="sm" onClick={() => setConfirmDiscard(true)} disabled={pending}>
               放棄變更
             </Button>
           )}

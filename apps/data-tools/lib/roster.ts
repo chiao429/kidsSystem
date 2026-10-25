@@ -5,7 +5,9 @@ import {
   GroupType,
   LEARNER_ROLES,
   RegistrationStatus,
+  baseOf,
   gradeGroup,
+  type BaseName,
   gradeRank,
   siblingTitle,
 } from '@kids/schema';
@@ -29,6 +31,8 @@ export interface Kid {
   性別: string;
   年級: string;
   組別: string;
+  /** 思麥特（國小）｜夢夢（學齡前） */
+  基地: BaseName;
   學校: string;
   家長: string;
   電話: string;
@@ -78,6 +82,7 @@ export async function loadRoster(eventId: string, opts: { statuses?: string[] } 
         性別: m?.性別 ?? '',
         年級,
         組別: gradeGroup(年級),
+        基地: baseOf(年級),
         學校: m?.學校 ?? '',
         家長: h?.主要聯絡人 ?? '',
         電話: h?.電話 ?? '',

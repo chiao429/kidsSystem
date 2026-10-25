@@ -1,5 +1,6 @@
 import clsx from 'clsx';
 import { forwardRef } from 'react';
+import { MobileMenu, NavGroup } from './nav-group';
 import type {
   ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes,
 } from 'react';
@@ -122,6 +123,8 @@ export function Empty({ children }: { children: ReactNode }) {
 export interface NavItem {
   href: string;
   label: string;
+  /** 有子項目時為可展開的群組（href 不使用） */
+  children?: NavItem[];
 }
 
 /** 本系統的 basePath（統一入口下各系統的路徑前綴；由各 app 的 next.config.js 設定） */
@@ -136,9 +139,9 @@ export function Shell({
   brand,
   nav = [],
   footerNav = [],
+  systems = [],
   user,
   logoutAction,
-  staffHome = '/staff',
   children,
 }: {
   title: string;
@@ -146,7 +149,9 @@ export function Shell({
   nav?: NavItem[];
   /** 顯示在左側選單底部的入口 */
   footerNav?: NavItem[];
-  /** 跨系統的同工入口（站內絕對路徑）；傳 null 不顯示 */
+  /** 這個帳號可以使用的其他系統（站內絕對路徑，不加 basePath） */
+  systems?: NavItem[];
+  /** @deprecated 同工入口已移除，改由 systems 列出各系統；保留參數相容舊呼叫 */
   staffHome?: string | null;
   user?: string;
   logoutAction?: () => Promise<void>;
@@ -168,17 +173,27 @@ export function Shell({
           </div>
         )}
         <nav className="flex flex-1 flex-col gap-1.5 text-sm">
-          {nav.map((n) => (
-            <a key={n.href} href={withBase(n.href)} className="rounded-xl px-4 py-3 font-medium text-white/85 transition hover:bg-white/15 hover:text-white">
-              {n.label}
-            </a>
-          ))}
-          {staffHome && (
-            <a href={staffHome} className="rounded-xl px-4 py-3 font-medium text-white/75 transition hover:bg-white/15 hover:text-white">
-              同工入口
-            </a>
+          {nav.map((n) =>
+            n.children ? (
+              <NavGroup key={n.label} item={n} />
+            ) : (
+              <a key={n.href} href={withBase(n.href)} className="rounded-xl px-4 py-3 font-medium text-white/85 transition hover:bg-white/15 hover:text-white">
+                {n.label}
+              </a>
+            ),
           )}
         </nav>
+        {/* 其他系統（依權限）放在底部，改密碼、登出的上面 */}
+        {systems.length > 0 && (
+          <nav className="mt-6 flex flex-col gap-1 border-t border-white/20 pt-4 text-sm">
+            <div className="px-4 pb-1 text-xs text-white/60">其他系統</div>
+            {systems.map((n) => (
+              <a key={n.href} href={n.href} className="rounded-xl px-4 py-2 font-medium text-white/80 transition hover:bg-white/15 hover:text-white">
+                {n.label}
+              </a>
+            ))}
+          </nav>
+        )}
         {footerNav.length > 0 && (
           <nav className="mt-6 border-t border-white/20 pt-4 text-sm">
             {footerNav.map((n) => (
@@ -189,7 +204,7 @@ export function Shell({
           </nav>
         )}
         {user && (
-          <div className={footerNav.length > 0 ? 'mt-2' : 'mt-6 border-t border-white/20 pt-4'}>
+          <div className={footerNav.length > 0 || systems.length > 0 ? 'mt-1' : 'mt-6 border-t border-white/20 pt-4'}>
             <a href={withBase('/password')} className="block rounded-xl px-4 py-2 text-sm text-white/80 hover:bg-white/15 hover:text-white">改密碼</a>
             <form action={logoutAction}>
               <button className="w-full rounded-xl px-4 py-2 text-left text-sm text-white/80 hover:bg-white/15 hover:text-white">登出</button>
@@ -198,15 +213,10 @@ export function Shell({
         )}
       </aside>
       <div className="min-w-0 flex-1">
-        <header className="sticky top-0 z-10 bg-[#17294d] text-white shadow-sm">
+        <header className="sticky top-0 z-30 bg-[#17294d] text-white shadow-sm">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-4 sm:px-6">
             <a href={withBase('/')} className="text-lg font-extrabold tracking-tight lg:hidden">{title}</a>
-            <nav className="order-3 flex w-full gap-1 overflow-x-auto pb-0.5 text-sm lg:hidden">
-              {nav.map((n) => (
-                <a key={n.href} href={withBase(n.href)} className="shrink-0 rounded-full px-3 py-1.5 text-white/80 hover:bg-white/15 hover:text-white">{n.label}</a>
-              ))}
-              {staffHome && <a href={staffHome} className="shrink-0 rounded-full px-3 py-1.5 text-white/70 hover:bg-white/15">同工入口</a>}
-            </nav>
+            <MobileMenu nav={nav} systems={systems} user={user} logoutAction={logoutAction} />
             {user && (
               <form action={logoutAction} className="ml-auto hidden items-center gap-2 text-sm text-white/75 lg:flex">
                 <span>{user}</span>

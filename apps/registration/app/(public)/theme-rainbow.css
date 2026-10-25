@@ -179,3 +179,113 @@
 .theme-rainbow .rb-hero { width: 100vw; margin-left: calc(50% - 50vw); padding: 24px 16px 8px; text-align: center; }
 .theme-rainbow .rb-hero-title { max-width: 1100px; margin: 0 auto; overflow: hidden; font-weight: 900; line-height: 1.15; letter-spacing: -0.03em; color: var(--rb-ink); }
 .theme-rainbow .rb-hero-sub { margin-top: 12px; font-size: 18px; font-weight: 700; color: var(--rb-ink); opacity: 0.8; }
+
+/* ---------- 活動報名頁內容卡片 ---------- */
+.theme-rainbow .rb-card-heading { margin-bottom: 14px; font-size: 20px; font-weight: 900; letter-spacing: -0.03em; }
+
+/* 活動資訊：圖示＋標籤＋內容 */
+.theme-rainbow .rb-info-rows { display: grid; gap: 10px; }
+.theme-rainbow .rb-info-row { display: grid; grid-template-columns: 40px 1fr; grid-template-rows: auto auto; column-gap: 12px; align-items: center; border-radius: 20px; background: var(--rb-cloud); padding: 10px 14px; }
+.theme-rainbow .rb-info-icon { grid-row: span 2; display: flex; width: 40px; height: 40px; align-items: center; justify-content: center; border-radius: 14px; background: #fff; font-size: 20px; }
+.theme-rainbow .rb-info-row dt { font-size: 12px; font-weight: 800; color: var(--rb-stone); }
+.theme-rainbow .rb-info-row dd { font-size: 16px; font-weight: 800; line-height: 1.45; color: var(--rb-ink); }
+
+/* 課程分組：頂端色條（--panel 為分組代表色） */
+.theme-rainbow .rb-panel { position: relative; overflow: hidden; }
+.theme-rainbow .rb-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 12px;
+  /* 分組色 → 淺色 → 偏粉的亮色 → 分組色，橫向流動 */
+  background: linear-gradient(
+      90deg,
+      var(--panel) 0%,
+      color-mix(in srgb, var(--panel) 45%, white) 20%,
+      color-mix(in srgb, var(--panel) 65%, #ff54bb) 40%,
+      var(--panel) 60%,
+      color-mix(in srgb, var(--panel) 45%, white) 80%,
+      var(--panel) 100%
+    )
+    0 0 / 250% 100%;
+  box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.45);
+  animation: rb-band 5s linear infinite;
+}
+@keyframes rb-band { from { background-position: 0% 0; } to { background-position: -250% 0; } }
+/* 細色條的顏色緩慢流動不是畫面位移，系統開啟「減少動態」時仍保留，只放慢 */
+@media (prefers-reduced-motion: reduce) {
+  .theme-rainbow .rb-panel::before { animation-duration: 12s; }
+}
+.theme-rainbow .rb-panel-title { display: flex; align-items: center; gap: 4px; font-size: 21px; font-weight: 900; letter-spacing: -0.03em; line-height: 1.3; }
+.theme-rainbow .rb-panel-star { color: var(--panel); font-size: 22px; }
+.theme-rainbow .rb-panel-meta { margin-top: 12px; display: grid; gap: 8px; }
+.theme-rainbow .rb-panel-meta > div { display: flex; align-items: baseline; gap: 10px; }
+.theme-rainbow .rb-panel-meta dt { flex-shrink: 0; border-radius: 50px; background: color-mix(in srgb, var(--panel) 16%, white); padding: 2px 10px; font-size: 12px; font-weight: 900; color: var(--rb-ink); }
+.theme-rainbow .rb-panel-meta dd { font-size: 15px; font-weight: 600; line-height: 1.6; }
+
+/* 課程清單（取代表格，手機上好讀）：一門課一列 */
+.theme-rainbow .rb-course-list { margin-top: 16px; display: grid; gap: 8px; }
+/* 課程編號：在卡片外側左邊的分組色圓章 */
+.theme-rainbow .rb-course-row { display: grid; grid-template-columns: 32px minmax(0, 1fr); align-items: start; gap: 10px; }
+.theme-rainbow .rb-course-num { display: flex; width: 32px; height: 32px; margin-top: 14px; align-items: center; justify-content: center; border-radius: 9999px; background: var(--panel); font-size: 16px; font-weight: 900; color: #fff; box-shadow: 0 4px 10px -4px color-mix(in srgb, var(--panel) 80%, black); }
+
+/* 課程：分組代表色的淡漸層 */
+.theme-rainbow .rb-course-item { display: block; border: 2.5px solid color-mix(in srgb, var(--panel) 55%, white); border-radius: 20px; background: linear-gradient(135deg, color-mix(in srgb, var(--panel) 16%, white) 0%, color-mix(in srgb, var(--panel) 6%, white) 55%, #fff 100%); padding: 12px 16px; color: inherit; }
+/* 名稱至少保留約 7 個字寬，放不下時材料費與人數換到下一行靠右 */
+.theme-rainbow .rb-course-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
+/* 課程名稱：放大，用加深的分組色（白底漸層上仍清楚） */
+.theme-rainbow .rb-course-name { font-size: 20px; font-weight: 900; letter-spacing: -0.03em; line-height: 1.35; color: color-mix(in srgb, var(--panel) 58%, #0f101a); flex: 1 1 7em; min-width: 0; }
+.theme-rainbow .rb-course-tags { display: flex; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; gap: 6px; margin-left: auto; }
+.theme-rainbow .rb-course-count { border-radius: 50px; background: #fff; padding: 2px 10px; font-size: 13px; font-weight: 800; white-space: nowrap; }
+.theme-rainbow .rb-course-fee { border-radius: 50px; background: #fff1e0; padding: 2px 10px; font-size: 13px; font-weight: 800; color: #c25f00; white-space: nowrap; }
+.theme-rainbow .rb-course-desc { font-size: 14px; font-weight: 700; line-height: 1.6; color: var(--rb-ink); }
+
+/* 注意事項：不加底色，灰色小字 */
+.theme-rainbow .rb-course-notice { font-size: 13px; font-weight: 600; line-height: 1.6; color: var(--rb-stone); }
+/* 卡片內容：課程說明 → 空一行 → 注意事項（各項在同一行並排，放不下才換行） */
+.theme-rainbow .rb-course-body { margin-top: 4px; }
+.theme-rainbow .rb-course-desc + .rb-course-notice { margin-top: 12px; }
+.theme-rainbow .rb-course-notice ul { display: flex; flex-wrap: wrap; gap: 2px 16px; }
+.theme-rainbow .rb-notice-line { display: flex; gap: 6px; }
+.theme-rainbow .rb-notice-marker { flex-shrink: 0; }
+.theme-rainbow .rb-course-notice-title { font-weight: 900; color: var(--rb-ink); }
+
+/* 簽名檔：淡色、字小一號 */
+.theme-rainbow .rb-signature-card { background: rgba(255, 255, 255, 0.6); }
+.theme-rainbow .rb-signature-card .ui-rich-text { font-size: 13px; color: #4b4d5c; }
+
+/* 報名入口：初次報名／家長登入上下排列，固定懸浮在右下角 */
+.theme-rainbow .rb-cta-bar { position: fixed; right: 16px; bottom: 16px; z-index: 30; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.theme-rainbow .rb-cta-bar .rb-cta { min-height: 44px; gap: 10px; padding: 6px 6px 6px 18px; border-radius: 9999px; font-size: 16px; box-shadow: 0 10px 22px -10px rgba(15, 16, 26, 0.5); }
+.theme-rainbow .rb-cta-bar .rb-cta::before { inset: 2px 10px auto; }
+.theme-rainbow .rb-cta-bar .rb-cta-arrow { width: 32px; height: 32px; font-size: 16px; }
+.theme-rainbow .rb-cta-bar .rb-cta:hover { transform: translateY(-2px); }
+/* 寬螢幕：放在內容欄右側外面，不蓋住內容 */
+@media (min-width: 1024px) { .theme-rainbow .rb-cta-bar { right: max(16px, calc(50% - 336px - 170px)); } }
+
+/* 子頁面的「回活動頁」 */
+.theme-rainbow .rb-back { display: inline-flex; align-items: center; gap: 6px; border-radius: 50px; background: rgba(255, 255, 255, 0.85); padding: 8px 16px; font-size: 14px; font-weight: 800; color: var(--rb-ink); box-shadow: var(--rb-highlight); transition: transform 0.2s, background 0.2s; }
+.theme-rainbow .rb-back:hover { background: #fff; transform: translateX(-2px); }
+.theme-rainbow .rb-back:active { transform: scale(0.97); }
+
+/* ---------- 報名教學 ---------- */
+.theme-rainbow .rb-tour-start { margin-top: 14px; display: inline-flex; align-items: center; gap: 6px; border-radius: 50px; background: #fff; padding: 8px 18px; font-size: 15px; font-weight: 900; color: var(--rb-ink); box-shadow: 0 6px 16px -10px rgba(15, 16, 26, 0.5), var(--rb-highlight); transition: transform 0.2s; }
+.theme-rainbow .rb-tour-start:hover { transform: translateY(-1px); }
+.theme-rainbow .rb-tour-start:active { transform: scale(0.97); }
+.theme-rainbow .rb-tour { position: fixed; inset: 0; z-index: 50; text-align: left; }
+.theme-rainbow .rb-tour-backdrop { position: absolute; inset: 0; }
+/* 目標挖空：用超大的外陰影把周圍變暗 */
+.theme-rainbow .rb-tour-spot { position: fixed; border-radius: 28px; box-shadow: 0 0 0 4px #fff, 0 0 0 9999px rgba(15, 16, 26, 0.62); pointer-events: none; transition: top 0.3s, left 0.3s, width 0.3s, height 0.3s; }
+.theme-rainbow .rb-tour-tip { position: fixed; left: 50%; width: min(92vw, 420px); transform: translateX(-50%); border-radius: 24px; background: #fff; padding: 18px 20px; box-shadow: 0 20px 50px -20px rgba(15, 16, 26, 0.6); animation: rb-tour-pop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes rb-tour-pop { from { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.97); } to { opacity: 1; transform: translateX(-50%); } }
+.theme-rainbow .rb-tour-progress { display: flex; gap: 4px; }
+.theme-rainbow .rb-tour-progress span { height: 5px; flex: 1; border-radius: 9999px; background: var(--rb-cloud); }
+.theme-rainbow .rb-tour-progress .is-done { background: color-mix(in srgb, var(--rb-pink) 45%, white); }
+.theme-rainbow .rb-tour-progress .is-current { background: linear-gradient(90deg, #ff8a00, #ff54bb); }
+.theme-rainbow .rb-tour-step { margin-top: 10px; font-size: 12px; font-weight: 800; color: var(--rb-stone); }
+.theme-rainbow .rb-tour-title { margin-top: 2px; font-size: 19px; font-weight: 900; letter-spacing: -0.02em; }
+.theme-rainbow .rb-tour-text { margin-top: 6px; font-size: 15px; font-weight: 600; line-height: 1.65; color: #3d3f4d; }
+.theme-rainbow .rb-tour-actions { margin-top: 14px; display: flex; align-items: center; justify-content: space-between; }
+.theme-rainbow .rb-tour-skip { font-size: 14px; font-weight: 700; color: var(--rb-stone); text-decoration: underline; text-underline-offset: 3px; }
+.theme-rainbow .rb-tour-btn { border-radius: 50px; background: linear-gradient(110deg, #ff8a00, #ff54bb); padding: 9px 18px; font-size: 15px; font-weight: 900; color: #fff; }
+.theme-rainbow .rb-tour-btn.is-secondary { background: var(--rb-cloud); color: var(--rb-ink); }

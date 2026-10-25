@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Card, Empty, buttonClass } from '@kids/ui';
 import { requireSession } from '@kids/auth/next';
+import { BASES } from '@kids/schema';
 import { getEvent, loadGroups, type GroupRef } from '@/lib/data';
 
 export default async function TeamsPage({ params }: { params: { eventId: string } }) {
@@ -22,22 +23,35 @@ export default async function TeamsPage({ params }: { params: { eventId: string 
           出席統計
         </Link>
       </div>
-      {types.map((type) => {
-        const myList = mine.filter((g) => g.類型 === type);
-        const otherList = others.filter((g) => g.類型 === type);
+      {/* 依基地分開：思麥特（國小）、夢夢（學齡前） */}
+      {BASES.map((b) => {
+        const inBase = allowed.filter((g) => g.基地 === b.short);
+        if (inBase.length === 0) return null;
         return (
-          <div key={type} className="space-y-4">
-            {myList.length > 0 && (
-              <Card title={`我的${type}`}>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{myList.map((g) => link(g, true))}</div>
-              </Card>
-            )}
-            {otherList.length > 0 && (
-              <Card title={`其他${type}`}>
-                <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">{otherList.map((g) => link(g, false))}</div>
-              </Card>
-            )}
-          </div>
+          <section key={b.short} className="space-y-3">
+            <h2 className="text-lg font-bold">
+              {b.name}
+              <span className="ml-2 text-sm font-normal text-gray-500">{b.note}</span>
+            </h2>
+            {types.map((type) => {
+              const myList = mine.filter((g) => g.類型 === type && g.基地 === b.short);
+              const otherList = others.filter((g) => g.類型 === type && g.基地 === b.short);
+              return (
+                <div key={type} className="space-y-4">
+                  {myList.length > 0 && (
+                    <Card title={`我的${type}`}>
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{myList.map((g) => link(g, true))}</div>
+                    </Card>
+                  )}
+                  {otherList.length > 0 && (
+                    <Card title={`其他${type}`}>
+                      <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">{otherList.map((g) => link(g, false))}</div>
+                    </Card>
+                  )}
+                </div>
+              );
+            })}
+          </section>
         );
       })}
       {allowed.length === 0 && (

@@ -1,11 +1,36 @@
-/** 年級的合法值與排序（報名表單、分組、分隊共用） */
-export const GRADE_OPTIONS = [
+/** 所有年級的合法值與排序（含國中，舊資料正規化與排序用） */
+export const ALL_GRADES = [
   '未就學', '小班', '中班', '大班',
   '一年級', '二年級', '三年級', '四年級', '五年級', '六年級',
   '國一', '國二', '國三',
 ] as const;
 
-export type Grade = (typeof GRADE_OPTIONS)[number];
+export type Grade = (typeof ALL_GRADES)[number];
+
+/** 可選擇的年級（報名表單、課程、活動設定的選單）：只到國小，不開放國中 */
+export const GRADE_OPTIONS = ALL_GRADES.slice(0, ALL_GRADES.indexOf('國一')) as readonly Grade[];
+
+/** 選單用：目前的值不在選項裡（例如舊資料的國中年級）時也列出，避免儲存時被清掉 */
+export const gradeChoices = (current?: string): readonly string[] =>
+  current && !(GRADE_OPTIONS as readonly string[]).includes(current) ? [...GRADE_OPTIONS, current] : GRADE_OPTIONS;
+
+/** 基地：國小（一~六年級）是思麥特基地，學齡前（未就學~大班）是夢夢基地；報到等資料依基地分開顯示 */
+export const BASES = [
+  { short: '思麥特', name: '思麥特基地', note: '國小' },
+  { short: '夢夢', name: '夢夢基地', note: '學齡前' },
+] as const;
+export type BaseName = (typeof BASES)[number]['short'];
+export const baseOf = (grade: string | undefined | null): BaseName => (gradeRank(grade) >= 1 ? '思麥特' : '夢夢');
+
+/**
+ * 分組（課程／小隊）屬於哪個基地：課程看年級限制；沒有年級限制（例如小隊）看成員年級的多數；都沒有時歸思麥特
+ */
+export function groupBaseOf(group: { 最低年級?: string; 最高年級?: string }, memberGrades: string[] = []): BaseName {
+  const limit = group.最高年級 || group.最低年級;
+  if (limit) return baseOf(limit);
+  const dream = memberGrades.filter((g) => baseOf(g) === '夢夢').length;
+  return memberGrades.length > 0 && dream > memberGrades.length / 2 ? '夢夢' : '思麥特';
+}
 
 /** 學齡前（未就學~大班）分組時合併 */
 export const PRESCHOOL_GROUP = '學齡前';
@@ -28,7 +53,7 @@ export function gradeRank(input: string | undefined | null): number {
   return -3;
 }
 
-/** 標準化成 GRADE_OPTIONS 之一 */
+/** 標準化成 ALL_GRADES 之一 */
 export function normalizeGrade(input: string | undefined | null): Grade {
   const s = String(input ?? '').trim();
   if (s.includes('小班')) return '小班';
@@ -36,7 +61,7 @@ export function normalizeGrade(input: string | undefined | null): Grade {
   if (rank === -3) return '未就學';
   if (rank === -2) return '中班';
   if (rank === -1) return '大班';
-  return GRADE_OPTIONS[rank + 3] as Grade;
+  return ALL_GRADES[rank + 3];
 }
 
 /** 分組用名稱：學齡前合併 */

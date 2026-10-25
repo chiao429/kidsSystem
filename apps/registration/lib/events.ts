@@ -1,7 +1,7 @@
 import 'server-only';
 import { EventStatus, isArchivedEvent, parseRules, type EventTable, type RowOf } from '@kids/schema';
 import { extractSheetIdFromUrl } from '@kids/sheets-core';
-import { events } from './tables';
+import { events, signatures } from './tables';
 
 export type EventRow = RowOf<typeof EventTable>;
 
@@ -34,3 +34,25 @@ export async function getEvent(eventId: string) {
 }
 
 export type EventInfo = NonNullable<Awaited<ReturnType<typeof getEvent>>>;
+
+/** 活動實際顯示的簽名檔內容：指定的 → 預設的；「無」或沒有簽名檔時回傳空字串（簽名檔分頁還沒建立也不影響活動頁） */
+export async function eventSignatureHtml(e: EventRow): Promise<string> {
+  if (e.簽名檔 === '無') return '';
+  try {
+    const all = await signatures().all();
+    return ((e.簽名檔 && all.find((s) => s.簽名檔ID === e.簽名檔)) || all.find((s) => s.預設 === 'Y'))?.內容 ?? '';
+  } catch {
+    return '';
+  }
+}
+
+const WEEK = '日一二三四五六';
+
+/** 課程分組卡片標題的日期「10/18(日)」：取自活動資訊的時間；還沒設定時用活動開始日期 */
+export function eventDateLabel(e: EventRow): string {
+  const fromTime = e.活動時間.match(/^\d{1,2}\/\d{1,2}\([日一二三四五六]\)/)?.[0];
+  if (fromTime) return fromTime;
+  const m = e.開始日期.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return '';
+  return `${m[2]}/${m[3]}(${WEEK[new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).getDay()]})`;
+}

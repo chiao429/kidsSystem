@@ -31,6 +31,11 @@ export default async function HomePage() {
           </ul>
         )}
       </Card>
+      <p className="text-center text-sm">
+        <Link href="/qr" className="rb-link">
+          已經報名了？用手機＋PIN 查詢報到 QR code
+        </Link>
+      </p>
     </>
   );
 }

@@ -1,5 +1,5 @@
 import 'server-only';
-import { RegistrationStatus, groupCounts } from '@kids/schema';
+import { BASES, RegistrationStatus, groupCounts } from '@kids/schema';
 import type { GroupRef } from './data';
 import { attendance, groupMembers, registrations, schedules } from './tables';
 
@@ -38,11 +38,16 @@ export async function loadStats(eventId: string, allowed: GroupRef[]) {
       const present = list.filter((a) => a.狀態 === '出席' || a.狀態 === '遲到').length;
       return { present, recorded: list.length, absent: list.filter((a) => a.狀態 === '缺席').length };
     });
-    return { team: g.分組ID, name: `${g.名稱}`, type: g.類型, size, cells };
+    return { team: g.分組ID, name: `${g.名稱}`, type: g.類型, base: g.基地, size, cells };
   });
 
-  const allowedIds = new Set(allowed.map((g) => g.分組ID));
-  const recorded = aa.filter((a) => allowedIds.has(a.分組ID));
-  const present = recorded.filter((a) => a.狀態 === '出席' || a.狀態 === '遲到').length;
-  return { cols, teamRows, totals: { recorded: recorded.length, present, rate: recorded.length ? present / recorded.length : 0 } };
+  // 全部與各基地的合計
+  const totalsOf = (list: GroupRef[]) => {
+    const ids = new Set(list.map((g) => g.分組ID));
+    const recorded = aa.filter((a) => ids.has(a.分組ID));
+    const present = recorded.filter((a) => a.狀態 === '出席' || a.狀態 === '遲到').length;
+    return { recorded: recorded.length, present, rate: recorded.length ? present / recorded.length : 0 };
+  };
+  const byBase = Object.fromEntries(BASES.map((b) => [b.short, totalsOf(allowed.filter((g) => g.基地 === b.short))]));
+  return { cols, teamRows, totals: totalsOf(allowed), byBase };
 }

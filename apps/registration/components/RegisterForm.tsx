@@ -1,17 +1,26 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Alert, Button, Card, Field, Input, Select, Textarea, buttonClass } from '@kids/ui';
 import { gradeRank } from '@kids/schema';
-import { familySignOut, lookupHousehold, submitRegistration } from '@/lib/actions';
+import { changeCourses, familySignOut, lookupHousehold, submitRegistration } from '@/lib/actions';
 import { FamilyLogin } from './FamilyLogin';
+import { groupColor } from '@/lib/course-colors';
 import type { CourseOption, HouseholdInput, MemberInput } from '@/lib/types';
 
 /** 課程是否適合此年級 */
 const fitsGrade = (c: CourseOption, grade: string) =>
   !!grade && (!c.minGrade || gradeRank(grade) >= gradeRank(c.minGrade)) && (!c.maxGrade || gradeRank(grade) <= gradeRank(c.maxGrade));
+
+/** 兒童生日檢查：必填、需年滿 3.5 歲（伺服器送出時會再檢查一次）；回傳錯誤訊息，空字串表示通過 */
+function birthdayProblem(m: MemberInput): string {
+  if (m.類型 !== '兒童') return '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(m.生日)) return '請填寫生日';
+  const [y, mo, d] = m.生日.split('-').map(Number);
+  return new Date(y, mo - 1 + 42, d) > new Date() ? '需年滿 3.5 歲才能報名' : '';
+}
 
 const emptyMember = (類型: string): MemberInput => ({
   姓名: '',
@@ -34,7 +43,10 @@ export function RegisterForm({
   defaultType,
   maxCoursesPerMember,
   allowOnSiteCourseRegistration,
+  allowCourseChange,
   staff = false,
+  onsite = false,
+  initialPhone = '',
   remembered,
 }: {
   eventId: string;
@@ -45,7 +57,13 @@ export function RegisterForm({
   defaultType: string;
   maxCoursesPerMember: number;
   allowOnSiteCourseRegistration: boolean;
-  /** 同工現場報名（已登入同工）：曾經報名過可直接用手機查詢，第一次報名可不設 PIN */
+  /** 家長報名後可自行修改課程；不可修改時送出前會先確認 */
+  allowCourseChange: boolean;
+  /** 同工在報到現場報名：額滿課程可登記備取、可記錄收費、報名後回報到系統直接報到 */
+  onsite?: boolean;
+  /** 現場報名先查過的家長手機（新家庭帶入；既有家庭直接查詢） */
+  initialPhone?: string;
+  /** 同工現場報名（已登入同工）：家長登入可直接用手機查詢，第一次報名可不設 PIN */
   staff?: boolean;
   /** 這台裝置記住的家庭 */
   remembered?: { name: string; phone: string };
@@ -54,11 +72,21 @@ export function RegisterForm({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState('');
   const [errors, setErrors] = useState<string[]>([]);
-  const [lookup, setLookup] = useState({ phone: '' });
+  const [lookup, setLookup] = useState({ phone: initialPhone });
   const [registeredIds, setRegisteredIds] = useState<string[]>([]);
   const [found, setFound] = useState(mode === 'new');
   const [registered, setRegistered] = useState<Set<string>>(new Set());
-  const [household, setHousehold] = useState<HouseholdInput>({ 主要聯絡人: '', 電話: '', Email: '', 地址: '' });
+  // 已報名孩子的報名內容（只顯示，不送回伺服器）
+  const [regInfo, setRegInfo] = useState<Record<string, { 序號: string; 狀態: string; 年級: string; 課程: string; 課程ID: string[] }>>({});
+  // 正在修改課程的已報名孩子：成員ID → 選取中的課程
+  const [editingCourses, setEditingCourses] = useState<Record<string, string[]>>({});
+  const [courseMessage, setCourseMessage] = useState<Record<string, string>>({});
+  // 不可修改課程時，送出前的確認視窗
+  const [confirming, setConfirming] = useState(false);
+  const [household, setHousehold] = useState<HouseholdInput>({ 主要聯絡人: '', 電話: mode === 'new' ? initialPhone : '', Email: '', 地址: '' });
+  // 現場報名：當場收費、報名後直接報到
+  const [paid, setPaid] = useState(false);
+  const [autoCheckIn, setAutoCheckIn] = useState(true);
   const [members, setMembers] = useState<MemberInput[]>(mode === 'new' ? [emptyMember(defaultType)] : []);
   const [consent, setConsent] = useState(false);
   const [photoConsent, setPhotoConsent] = useState(false);
@@ -85,14 +113,59 @@ export function RegisterForm({
       setHousehold(res.household);
       setRegisteredIds(res.registrationIds ?? []);
       setRegistered(new Set(res.members?.filter((m) => m.registered).map((m) => m.成員ID)));
+      setRegInfo(Object.fromEntries((res.members ?? []).filter((m) => m.registration).map((m) => [m.成員ID, m.registration!])));
       setMembers(
-        (res.members ?? []).map(({ registered: _registered, ...m }) => ({ ...m, courses: [], selected: false })),
+        (res.members ?? []).map(({ registered: _registered, registration: _registration, ...m }) => ({ ...m, courses: [], selected: false })),
       );
       setFound(true);
     });
 
+  // 現場報名先查過手機的既有家庭：進來就直接帶出資料
+  useEffect(() => {
+    if (mode === 'returning' && staff && initialPhone) doLookup();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const saveCourses = (成員ID: string) =>
+    startTransition(async () => {
+      setError('');
+      setErrors([]);
+      const res = await changeCourses(eventId, 成員ID, editingCourses[成員ID] ?? [], staff ? lookup.phone : undefined);
+      if (res.error) {
+        setError(res.error);
+        setErrors(res.errors ?? []);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+      setRegInfo((info) => ({ ...info, [成員ID]: { ...info[成員ID], 課程: res.課程 ?? '', 課程ID: res.課程ID ?? [] } }));
+      setEditingCourses(({ [成員ID]: _done, ...rest }) => rest);
+      setCourseMessage((msg) => ({ ...msg, [成員ID]: '已更新課程' }));
+    });
+
+  /** 要送出的報名（有勾選的孩子）與各自選的課程名稱，確認視窗用 */
+  const selectedForSubmit = members
+    .filter((m) => m.selected && !(m.成員ID && registered.has(m.成員ID)))
+    .map((m) => ({ name: m.姓名 || '（未填姓名）', courses: m.courses.map((id) => courses.find((c) => c.id === id)?.name ?? '').filter(Boolean) }));
+
+  // 不可修改課程的活動：先跳出確認，確認後才真正送出
+  const requestSubmit = () => {
+    // 生日先在前端檢查，錯誤提示比確認視窗先出現（伺服器送出時還會再檢查一次）
+    const birthdayErrors = members
+      .filter((m) => m.selected && !(m.成員ID && registered.has(m.成員ID)) && birthdayProblem(m))
+      .map((m) => `${m.姓名 || '（未填姓名）'}：${birthdayProblem(m)}`);
+    if (birthdayErrors.length) {
+      setError('有報名者不符合資格');
+      setErrors(birthdayErrors);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    if (!allowCourseChange && courses.length > 0) setConfirming(true);
+    else submit();
+  };
+
   const submit = () =>
     startTransition(async () => {
+      setConfirming(false);
       setError('');
       setErrors([]);
       const res = await submitRegistration({
@@ -108,11 +181,17 @@ export function RegisterForm({
         consent,
         photoConsent,
         followUpConsent,
+        paid: onsite ? paid : undefined,
       });
       if (res.error) {
         setError(res.error);
         setErrors(res.errors ?? []);
         window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+      // 現場報名：回到報到系統，剛報名的孩子直接報到（報到紀錄由報到系統寫入）
+      if (onsite && autoCheckIn) {
+        window.location.href = `/checkin/e/${eventId}?checkin=${(res.ids ?? []).join(',')}`;
         return;
       }
       const qs = new URLSearchParams({ ids: (res.ids ?? []).join(',') });
@@ -182,7 +261,7 @@ export function RegisterForm({
                   })
                 }
               >
-                換一個家庭
+                更換登入手機
               </button>
             )}
           </div>
@@ -196,6 +275,7 @@ export function RegisterForm({
           </Link>
         </Card>
       )}
+      <div data-tour="contact">
       <Card title="家庭聯絡資料">
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="主要聯絡人" required>
@@ -221,13 +301,14 @@ export function RegisterForm({
           </Field>
         </div>
       </Card>
+      </div>
 
       {members.map((m, i) => {
         const already = !!m.成員ID && registered.has(m.成員ID);
         const existing = !!m.成員ID;
         return (
+          <div key={m.成員ID ?? `new-${i}`} data-tour={i === 0 ? 'member' : undefined}>
           <Card
-            key={m.成員ID ?? `new-${i}`}
             title={
               existing ? (
                 <label className="flex items-center gap-2">
@@ -253,8 +334,73 @@ export function RegisterForm({
                 </Button>
               )
             }
-            className={existing && !m.selected ? 'opacity-60' : ''}
+            className={existing && !m.selected && !already ? 'opacity-60' : ''}
           >
+            {/* 已報名：直接顯示本次報名內容（唯讀） */}
+            {already && regInfo[m.成員ID!] && (
+              <dl className="grid gap-x-4 gap-y-1 text-sm sm:grid-cols-2">
+                {[
+                  ['報名序號', regInfo[m.成員ID!].序號],
+                  ['報名狀態', regInfo[m.成員ID!].狀態],
+                  ['年級', regInfo[m.成員ID!].年級],
+                  ['課程', regInfo[m.成員ID!].課程 || '—'],
+                  ['學校', m.學校 || '—'],
+                  ['特殊需求', m.特殊需求 || '—'],
+                ].map(([label, value]) => (
+                  <div key={label} className="flex gap-3 py-1">
+                    <dt className="w-16 shrink-0 text-gray-500">{label}</dt>
+                    <dd className="font-semibold text-gray-900">{value}</dd>
+                  </div>
+                ))}
+                {allowCourseChange && courses.length > 0 ? (
+                  <div className="sm:col-span-2">
+                    {editingCourses[m.成員ID!] ? (
+                      <div className="mt-2 space-y-3 rounded-2xl border border-gray-200 p-3">
+                        <div className="text-sm font-medium text-gray-700">
+                          修改課程
+                          <span className="ml-2 text-xs font-normal text-gray-500">{maxCoursesPerMember === 1 ? '請選擇 1 門' : maxCoursesPerMember > 0 ? `最多 ${maxCoursesPerMember} 門` : '可複選'}</span>
+                        </div>
+                        <CourseCards
+                          // 原本已選的課程不算額滿，取消後也能再選回來
+                          courses={courses
+                            .filter((c) => fitsGrade(c, regInfo[m.成員ID!].年級 || m.年級))
+                            .map((c) => (regInfo[m.成員ID!].課程ID.includes(c.id) ? { ...c, full: false } : c))}
+                          groups={courseGroups}
+                          order={courseOrder}
+                          selected={editingCourses[m.成員ID!]}
+                          max={maxCoursesPerMember}
+                          onChange={(ids) => setEditingCourses((e) => ({ ...e, [m.成員ID!]: ids }))}
+                        />
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="sm" onClick={() => setEditingCourses(({ [m.成員ID!]: _c, ...rest }) => rest)}>
+                            取消
+                          </Button>
+                          <Button size="sm" disabled={pending || editingCourses[m.成員ID!].length === 0} onClick={() => saveCourses(m.成員ID!)}>
+                            {pending ? '儲存中…' : '儲存課程'}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between gap-3 pt-1">
+                        <p className="text-xs text-gray-500">{courseMessage[m.成員ID!] || '報名期間內可以修改課程。'}</p>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => {
+                            setCourseMessage(({ [m.成員ID!]: _m, ...rest }) => rest);
+                            setEditingCourses((e) => ({ ...e, [m.成員ID!]: regInfo[m.成員ID!].課程ID }));
+                          }}
+                        >
+                          修改課程
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500 sm:col-span-2">已完成報名，如需修改請聯絡主辦單位。</p>
+                )}
+              </dl>
+            )}
             {(m.selected || !existing) && (
               <div className="grid gap-3 sm:grid-cols-3">
                 <Field label="姓名" required>
@@ -276,8 +422,10 @@ export function RegisterForm({
                     {m.年級 && !grades.includes(m.年級) && <option>{m.年級}</option>}
                   </Select>
                 </Field>
-                <Field label="生日">
-                  <Input type="date" value={m.生日} onChange={(e) => updateMember(i, { 生日: e.target.value })} />
+                <Field label="生日" required hint={m.類型 === '兒童' ? '需年滿 3.5 歲' : undefined}>
+                  <Input type="date" required max={new Date().toISOString().slice(0, 10)} value={m.生日} onChange={(e) => updateMember(i, { 生日: e.target.value })} />
+                  {/* 輸入生日後立即檢查；還沒填時不提示，送出時才提醒 */}
+                  {m.生日 && birthdayProblem(m) && <p className="mt-1 text-sm font-semibold text-red-600">{birthdayProblem(m)}</p>}
                 </Field>
                 <Field label="學校">
                   <Input value={m.學校} onChange={(e) => updateMember(i, { 學校: e.target.value })} />
@@ -288,7 +436,7 @@ export function RegisterForm({
                   </Field>
                 </div>
                 {courses.length > 0 && (
-                  <div className="sm:col-span-3">
+                  <div className="sm:col-span-3" data-tour={i === 0 ? 'course' : undefined}>
                     <div className="mb-2 text-sm font-medium text-gray-700">
                       課程<span className="ml-0.5 text-red-500">*</span>
                       <span className="ml-2 text-xs font-normal text-gray-500">{maxCoursesPerMember === 1 ? '請選擇 1 門' : maxCoursesPerMember > 0 ? `最多 ${maxCoursesPerMember} 門` : '可複選'}</span>
@@ -302,6 +450,7 @@ export function RegisterForm({
                       order={courseOrder}
                       selected={m.courses}
                       max={maxCoursesPerMember}
+                      allowWaitlist={onsite}
                       onChange={(ids) => updateMember(i, { courses: ids })}
                     />
                     )}
@@ -311,17 +460,19 @@ export function RegisterForm({
               </div>
             )}
           </Card>
+          </div>
         );
       })}
 
-      <Button variant="secondary" onClick={() => setMembers((ms) => [...ms, emptyMember(defaultType)])}>
+      <Button variant="secondary" data-tour="add" onClick={() => setMembers((ms) => [...ms, emptyMember(defaultType)])}>
         ＋ 新增{mode === 'returning' ? '家庭成員' : '同戶報名者'}
       </Button>
 
       {mode === 'new' && (
+        <div data-tour="pin">
         <Card title="設定 PIN">
           <p className="mb-3 text-sm text-gray-600">
-            {staff ? '同工現場代填可以先不設定，家長之後可用孩子的姓名與生日驗證再設定。' : '請設定 4 位數字的 PIN。下次報名選「曾經報名過」，輸入手機＋PIN 就能自動帶入家長與孩子的資料。'}
+            {staff ? '同工現場代填可以先不設定，家長之後可用孩子的姓名與生日驗證再設定。' : '請設定 4 位數字的 PIN。下次報名選「家長登入」，輸入手機＋PIN 就能自動帶入家長與孩子的資料。'}
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="PIN（4 位數字）" required={!staff}>
@@ -339,8 +490,36 @@ export function RegisterForm({
             </label>
           )}
         </Card>
+        </div>
       )}
 
+      {onsite && (() => {
+        // 應收：已勾選孩子（非備取）所選課程的材料費合計
+        const fee = (ids: string[]) => ids.reduce((sum, id) => sum + (courses.find((c) => c.id === id)?.fee ?? 0), 0);
+        const picked = members.filter((m) => m.selected && !(m.成員ID && registered.has(m.成員ID)));
+        const waitlisted = picked.filter((m) => m.courses.some((id) => courses.find((c) => c.id === id)?.full));
+        const total = picked.filter((m) => !waitlisted.includes(m)).reduce((sum, m) => sum + fee(m.courses), 0);
+        return (
+          <Card title="現場收費與報到">
+            <div className="space-y-3 text-sm text-gray-700">
+              <p>
+                應收材料費 <span className="text-lg font-bold text-gray-900">{total}</span> 元
+                {waitlisted.length > 0 && <span className="ml-2 text-amber-700">（{waitlisted.map((m) => m.姓名 || '未填姓名').join('、')} 為備取，先不收費）</span>}
+              </p>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" className="h-4 w-4" checked={paid} onChange={(e) => setPaid(e.target.checked)} />
+                已收費（記錄繳費金額、時間與收款人）
+              </label>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" className="h-4 w-4" checked={autoCheckIn} onChange={(e) => setAutoCheckIn(e.target.checked)} />
+                報名後直接報到（回到報到畫面）
+              </label>
+            </div>
+          </Card>
+        );
+      })()}
+
+      <div data-tour="consent">
       <Card>
         <label className="flex items-start gap-2 text-sm text-gray-700">
           <input type="checkbox" className="mt-1" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
@@ -370,20 +549,40 @@ export function RegisterForm({
           以上皆同意
         </label>
       </Card>
+      </div>
 
-      <Button size="lg" className="w-full" onClick={submit} disabled={pending || !consent || (mode === 'new' && !staff && (pin.length !== 4 || pin !== pinConfirm))}>
+      {confirming && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
+            <h2 id="confirm-title" className="text-lg font-bold text-gray-900">
+              確認送出報名
+            </h2>
+            <p className="mt-2 text-sm font-semibold text-red-600">一旦送出後無法更改課程，請確認課程都選對了。</p>
+            <ul className="mt-4 space-y-2 text-sm">
+              {selectedForSubmit.map((m, i) => (
+                <li key={i} className="rounded-2xl bg-gray-50 px-4 py-2">
+                  <span className="font-semibold text-gray-900">{m.name}</span>
+                  <span className="text-gray-600">：{m.courses.join('、') || '（未選課程）'}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-6 flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setConfirming(false)}>
+                再檢查一下
+              </Button>
+              <Button onClick={submit} disabled={pending}>
+                確認送出
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Button size="lg" className="w-full" data-tour="submit" onClick={requestSubmit} disabled={pending || !consent || (mode === 'new' && !staff && (pin.length !== 4 || pin !== pinConfirm))}>
         {pending ? '送出中…' : '送出報名'}
       </Button>
     </div>
   );
-}
-
-/** 課程分組的識別色（標籤前的小圓點）；卡片其餘外觀由版面主題 CSS 的 course-* class 決定 */
-const GROUP_DOTS = ['bg-[#ff8a00]', 'bg-[#4aa8ff]', 'bg-[#3ddc84]', 'bg-[#ff54bb]', 'bg-[#ffd400]'];
-
-/** 依分組在整場活動課程中的出現順序配色：不論年級篩出哪些課程，同一分組永遠同色，不同分組不同色 */
-function dotOf(groups: string[], group: string) {
-  return GROUP_DOTS[Math.max(groups.indexOf(group), 0) % GROUP_DOTS.length];
 }
 
 /** 課程卡片：max = 1 時為單選（再點一次可取消），其餘為複選 */
@@ -393,9 +592,12 @@ function CourseCards({
   order,
   selected,
   max,
+  allowWaitlist = false,
   onChange,
 }: {
   courses: CourseOption[];
+  /** 同工現場報名：額滿的課程也能選，登記為備取（只能單獨選這一門） */
+  allowWaitlist?: boolean;
   /** 整場活動的課程分組（決定顏色） */
   groups: string[];
   /** 整場活動的課程順序（決定卡片插圖，篩選年級後每門課的插圖不變） */
@@ -410,15 +612,19 @@ function CourseCards({
     <div role={single ? 'radiogroup' : 'group'} aria-label="課程" className="grid gap-3 sm:grid-cols-2">
       {courses.map((c) => {
         const checked = selected.includes(c.id);
-        const unavailable = c.full || c.registrationState !== 'open';
-        const blockedByMax = !single && !checked && max > 0 && selected.length >= max;
+        const waitlist = allowWaitlist && c.full;
+        const unavailable = (c.full && !waitlist) || (c.registrationState !== 'open' && !allowWaitlist);
+        const blockedByMax = !single && !checked && !waitlist && max > 0 && selected.length >= max;
         const disabled = unavailable || blockedByMax;
-        const status = c.full ? '額滿' : c.registrationState === 'upcoming' ? '尚未開放' : c.registrationState === 'closed' ? '已截止' : '';
+        const status = waitlist ? '額滿・可備取' : c.full ? '額滿' : c.registrationState === 'upcoming' ? '尚未開放' : c.registrationState === 'closed' ? '已截止' : '';
         const low = c.remaining != null && c.remaining <= 3;
         const toggle = () => {
           if (disabled && !checked) return;
           if (single) onChange(checked ? [] : [c.id]);
-          else onChange(checked ? selected.filter((x) => x !== c.id) : [...selected, c.id]);
+          else if (checked) onChange(selected.filter((x) => x !== c.id));
+          // 不能同時有正取和備取：選備取課程時只留這一門；選一般課程時拿掉已選的備取課程
+          else if (waitlist) onChange([c.id]);
+          else onChange([...selected.filter((x) => !courses.find((o) => o.id === x)?.full), c.id]);
         };
         return (
           <button
@@ -437,7 +643,7 @@ function CourseCards({
             <span className="course-tags">
               {c.groupName && (
                 <span className="course-tag">
-                  <span className={`h-2.5 w-2.5 rounded-full ${dotOf(groups, c.groupName)}`} />
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: groupColor(groups, c.groupName) }} />
                   {c.groupName}
                 </span>
               )}

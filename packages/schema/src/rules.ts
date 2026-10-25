@@ -25,6 +25,8 @@ export interface EventRules {
   maxCoursesPerMember?: number;
   /** 是否允許現場報名課程 */
   allowOnSiteCourseRegistration?: boolean;
+  /** 家長報名後可在報名期間內自行修改課程；未設定＝不可修改（送出前會提醒家長） */
+  allowCourseChange?: boolean;
 }
 
 export function parseRules(json: string | undefined | null): EventRules {

@@ -4,22 +4,27 @@ import { requireSession } from '@kids/auth/next';
 import { households, members } from '@/lib/tables';
 
 export default async function FamiliesPage({ searchParams }: { searchParams: { q?: string } }) {
-  requireSession({ permission: 'admin' });
+  requireSession({ permission: 'families' });
   const q = (searchParams.q ?? '').trim();
   const [hh, mm] = await Promise.all([households().all(), members().all()]);
   const namesOf = (id: string) => mm.filter((m) => m.家庭ID === id).map((m) => m.姓名);
-  const rows = q
-    ? hh.filter((h) => [h.主要聯絡人, h.電話, h.家庭ID, ...namesOf(h.家庭ID)].some((v) => v.includes(q))).slice(0, 100)
-    : [];
+  // 沒有關鍵字時直接列出全部家庭（新建立的在前）；家庭很多時只顯示前 LIMIT 筆
+  const LIMIT = 200;
+  const matched = (q ? hh.filter((h) => [h.主要聯絡人, h.電話, h.家庭ID, ...namesOf(h.家庭ID)].some((v) => v.includes(q))) : hh)
+    .slice()
+    .sort((a, b) => (b.建立時間 ?? '').localeCompare(a.建立時間 ?? ''));
+  const rows = matched.slice(0, LIMIT);
   return (
     <Card title="家庭與成員">
       <form className="mb-3 flex gap-2">
         <Input name="q" defaultValue={q} placeholder="搜尋聯絡人、電話、成員姓名" className="max-w-sm" />
         <button className="rounded-lg border px-3 text-sm">搜尋</button>
       </form>
-      {!q ? (
-        <Empty>輸入關鍵字搜尋（共 {hh.length} 個家庭）</Empty>
-      ) : rows.length === 0 ? (
+      <p className="mb-2 text-sm text-gray-500">
+        {q ? `符合「${q}」的家庭 ${matched.length} 個` : `共 ${hh.length} 個家庭`}
+        {matched.length > LIMIT && `，只顯示最新的 ${LIMIT} 個，請用搜尋縮小範圍`}
+      </p>
+      {rows.length === 0 ? (
         <Empty>沒有符合的家庭</Empty>
       ) : (
         <Table head={['主要聯絡人', '電話', '成員', '家庭ID']}>

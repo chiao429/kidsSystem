@@ -21,7 +21,8 @@ export function checkMember(
   existing: Registration[],
   courses: Group[],
   courseCounts: Map<string, number>,
-  options: { onSite?: boolean; now?: Date } = {},
+  /** allowWaitlist：同工現場報名時，額滿的課程可以登記備取（只能單獨報這一門） */
+  options: { onSite?: boolean; now?: Date; allowWaitlist?: boolean } = {},
 ): string | null {
   const name = member.姓名 || '（未填姓名）';
   const rank = gradeRank(member.年級);
@@ -44,11 +45,20 @@ export function checkMember(
     if (start && now < start) return `${name}：課程「${g.名稱}」尚未開放報名`;
     if (end && now > end && !(options.onSite && allowOnSite)) return `${name}：課程「${g.名稱}」報名已截止`;
     if (options.onSite && !allowOnSite) return `${name}：課程「${g.名稱}」不允許現場報名`;
-    const cap = Number(g.名額) || 0;
-    if (cap && (courseCounts.get(id) ?? 0) >= cap) return `${name}：課程「${g.名稱}」已額滿`;
+    if (isCourseFull(g, courseCounts)) {
+      if (!options.allowWaitlist) return `${name}：課程「${g.名稱}」已額滿`;
+      // 不能同時有正取和備取：備取的課程只能單獨報名
+      if (member.courses.length > 1) return `${name}：課程「${g.名稱}」已額滿，備取只能單獨報名這一門課程`;
+    }
   }
   if (courses.length > 0 && member.courses.length === 0) return `${name}：請至少選擇一門課程`;
   return null;
+}
+
+/** 課程是否已額滿（不限名額的課程永遠不會額滿） */
+export function isCourseFull(g: Group, courseCounts: Map<string, number>) {
+  const cap = Number(g.名額) || 0;
+  return !!cap && (courseCounts.get(g.分組ID) ?? 0) >= cap;
 }
 
 function parseCourseDate(value: string | undefined): Date | null {

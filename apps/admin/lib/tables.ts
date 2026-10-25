@@ -4,7 +4,7 @@ import {
   MASTER_TABLES, EVENT_TABLES,
   HouseholdTable, MemberTable, AccountTable, RoleTable, EventTable,
   RegistrationTable, CheckInTable, GroupTable, GroupMemberTable, ScheduleTable,
-  AttendanceTable, SurveyTable, SurveyResponseTable, LogTable,
+  AttendanceTable, SurveyTable, SurveyResponseTable, LogTable, SignatureTable,
 } from '@kids/schema';
 
 // 寫入：帳號、活動、時間表、問卷、日誌、課程分組（及課程/小隊分組成員）
@@ -16,6 +16,7 @@ export const members = () => new SheetTable('master', MemberTable, A);
 export const accounts = () => new SheetTable('master', AccountTable, A);
 export const roles = () => new SheetTable('master', RoleTable, A);
 export const events = () => new SheetTable('master', EventTable, A);
+export const signatures = () => new SheetTable('master', SignatureTable, A);
 export const registrations = (eventId: string) => new SheetTable(eventId, RegistrationTable, A);
 export const checkIns = (eventId: string) => new SheetTable(eventId, CheckInTable, A);
 export const groups = (eventId: string) => new SheetTable(eventId, GroupTable, A);

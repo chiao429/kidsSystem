@@ -5,6 +5,7 @@ import { Badge, Button, Card, Stat, Table } from '@kids/ui';
 import { fetchBoard, fetchSlots, toggleFlag } from '@/lib/actions';
 import type { GroupType } from '@kids/schema';
 import type { Board, SlotInfo } from '@/lib/types';
+import { BaseTabs, useBaseFilter } from './BaseTabs';
 
 const REFRESH_MS = 15_000;
 
@@ -19,6 +20,7 @@ export function Dashboard({ eventId, initial, initialSlots }: { eventId: string;
   const [slots, setSlots] = useState(initialSlots);
   const [selected, setSelected] = useState<string[]>([]);
   const [pending, startTransition] = useTransition();
+  const [base, setBase] = useBaseFilter(eventId);
 
   useEffect(() => {
     try {
@@ -62,11 +64,15 @@ export function Dashboard({ eventId, initial, initialSlots }: { eventId: string;
     if (mode === '小隊' && board.rows.some((r) => !r.小隊ID)) list.push({ id: NO_TEAM, 名稱: '未分隊', 區域: '' });
     return list;
   }, [board, mode]);
+  // 依基地分開：選了思麥特或夢夢時，所有統計與名單只算該基地
+  const inBase = <T extends { 基地: string }>(list: T[]) => (base ? list.filter((r) => r.基地 === base) : list);
   const rowsOf = (id: string) =>
-    mode === '課程'
-      ? courseBoards[id]?.rows ?? board.rows.filter((r) => r.課程.some((c) => c.分組ID === id))
-      : board.rows.filter((r) => (r.小隊ID || NO_TEAM) === id);
-  const rows = selected.length ? selected.flatMap(rowsOf) : board.rows;
+    inBase(
+      mode === '課程'
+        ? courseBoards[id]?.rows ?? board.rows.filter((r) => r.課程.some((c) => c.分組ID === id))
+        : board.rows.filter((r) => (r.小隊ID || NO_TEAM) === id),
+    );
+  const rows = selected.length ? selected.flatMap(rowsOf) : inBase(board.rows);
   const arrived = rows.filter((r) => r.報到狀態 === '已到');
   const absent = rows.filter((r) => r.報到狀態 === '不會出席');
   const notArrived = rows.filter((r) => r.報到狀態 !== '已到' && r.報到狀態 !== '不會出席');
@@ -87,10 +93,12 @@ export function Dashboard({ eventId, initial, initialSlots }: { eventId: string;
         absent: list.filter((r) => r.報到狀態 === '不會出席').length,
         slot,
       };
-    });
+    })
+    .filter((p) => !base || p.total > 0);
 
   return (
     <div className="space-y-4">
+      <BaseTabs rows={board.rows} value={base} onChange={setBase} />
       <Card
         title={`${groupLabel}篩選`}
         actions={
@@ -155,11 +163,12 @@ export function Dashboard({ eventId, initial, initialSlots }: { eventId: string;
       </Card>
 
       <Card title={`未報到名單（${notArrived.length}）`}>
-        <Table head={['序號', '姓名', '小隊', '家長', '電話', '狀態', '聯繫']}>
+        <Table head={['序號', '姓名', '基地', '小隊', '家長', '電話', '狀態', '聯繫']}>
           {notArrived.map((r) => (
             <tr key={r.報名ID}>
               <td className="px-2 py-1.5 tabular-nums">{r.序號}</td>
               <td className="px-2 py-1.5 font-medium">{r.姓名}</td>
+              <td className="px-2 py-1.5">{r.基地}</td>
               <td className="px-2 py-1.5">{r.小隊}</td>
               <td className="px-2 py-1.5">{r.家長}</td>
               <td className="px-2 py-1.5">

@@ -5,7 +5,7 @@ import { Alert, Badge, Button } from '@kids/ui';
 import { RichTextEditor, type RichTextEditorHandle } from '@kids/ui/rich-text-editor';
 import { saveEventDescription } from '@/lib/event-actions';
 
-/** 活動說明分頁：全寬編輯器＋儲存＋預覽家長報名頁 */
+/** 報名頁內容分頁的「補充資訊」（活動說明欄位）：全寬編輯器＋儲存＋預覽家長報名頁 */
 export function DescriptionEditor({ eventId, initial, previewUrl }: { eventId: string; initial: string; previewUrl: string }) {
   const [html, setHtml] = useState(initial);
   // 編輯器在掛上 change 監聽之前就放好初始內容，所以收到 change 一定是使用者改的
@@ -60,7 +60,7 @@ export function DescriptionEditor({ eventId, initial, previewUrl }: { eventId: s
   return (
     <div className="space-y-3">
       <div className="sticky top-16 z-10 flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur">
-        <span className="text-sm font-semibold text-gray-800">活動說明</span>
+        <span className="text-sm font-semibold text-gray-800">補充資訊</span>
         {dirty ? <Badge tone="amber">尚未儲存</Badge> : <span className="text-xs text-gray-500">{message || '內容已儲存'}</span>}
         <div className="ml-auto flex flex-wrap gap-2">
           <a href={previewUrl} target="_blank" rel="noreferrer" className="inline-flex items-center rounded-full px-2.5 py-1 text-sm font-semibold text-[#4b5565] hover:bg-[#eef1f6]">
@@ -77,11 +77,11 @@ export function DescriptionEditor({ eventId, initial, previewUrl }: { eventId: s
       {error && <Alert>{error}</Alert>}
       <RichTextEditor
         name="description"
-        label="家長報名頁顯示的內容"
-        hint="時間、地點、報到與繳費資訊、課程表與注意事項都寫在這裡；「預覽家長頁」顯示的是已儲存的版本"
+        label="補充資訊"
+        hint="顯示在課程分組卡片下方，放其他需要說明的內容（沒有可以留空）；「預覽家長頁」顯示的是已儲存的版本"
         defaultValue={initial}
         onChange={onChange}
-        minHeight={560}
+        minHeight={320}
         handle={editor}
       />
     </div>

@@ -1,3 +1,4 @@
+import { systemLinksFor } from '@kids/schema';
 import { Shell } from '@kids/ui';
 import { logout, requireSession } from '@kids/auth/next';
 
@@ -11,7 +12,7 @@ async function logoutAction() {
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const session = requireSession({ permission: 'rollcall' });
   return (
-    <Shell title="點名系統" brand="#315bc7" nav={[{ href: '/', label: '活動' }]} user={session.name} logoutAction={logoutAction}>
+    <Shell title="點名系統" brand="#315bc7" nav={[{ href: '/', label: '活動' }]} systems={systemLinksFor(session.permissions, '/rollcall')} user={session.name} logoutAction={logoutAction}>
       {children}
     </Shell>
   );

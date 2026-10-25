@@ -4,6 +4,7 @@ import { requireSession } from '@kids/auth/next';
 import {
   CheckInMethod,
   CheckInStatus,
+  PaymentStatus,
   RegistrationStatus,
   RegistrationType,
   newId,
@@ -145,6 +146,26 @@ export async function setStatus(eventId: string, 報名ID: string, course: strin
   );
   await log(event.活動ID, s.name, status || '清除狀態', 報名ID, reg.姓名);
   return { ok: true };
+}
+
+/** 記錄或取消繳費（金額為收到的金額，預設為應收） */
+export async function setPayment(eventId: string, 報名ID: string, paid: boolean, amount: number): Promise<ActionResult> {
+  const s = session(eventId);
+  const event = await getEvent(eventId);
+  const reg = (await registrations(event.活動ID).all({ fresh: true })).find((r) => r.報名ID === 報名ID);
+  if (!reg) return { error: '找不到此報名資料' };
+  const value = Math.max(0, Math.round(Number(amount) || 0));
+  await registrations(event.活動ID).ensure();
+  await registrations(event.活動ID).updateByIds([
+    {
+      id: 報名ID,
+      changes: paid
+        ? { 繳費狀態: PaymentStatus.Paid, 繳費金額: String(value), 繳費時間: nowString(), 收款人: s.name }
+        : { 繳費狀態: PaymentStatus.Unpaid, 繳費金額: '', 繳費時間: '', 收款人: '' },
+    },
+  ]);
+  await log(event.活動ID, s.name, paid ? '記錄繳費' : '取消繳費', 報名ID, paid ? `${reg.姓名} ${value} 元` : reg.姓名);
+  return { ok: true, message: paid ? `已記錄 ${reg.姓名} 繳費 ${value} 元` : `已取消 ${reg.姓名} 的繳費紀錄` };
 }
 
 export async function toggleFlag(

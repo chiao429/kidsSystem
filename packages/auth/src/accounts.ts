@@ -1,6 +1,6 @@
 import { AccountTable, ADMIN_ROLE_ID, RoleTable, normalizePhone, resolveRoles, splitList } from '@kids/schema';
 import { SheetTable } from '@kids/sheets-core';
-import { hashPassword, verifyPassword, type Session } from './crypto';
+import { SESSION_PERMISSION_VERSION, hashPassword, verifyPassword, type Session } from './crypto';
 
 const SESSION_HOURS = 12;
 
@@ -43,7 +43,7 @@ export async function authenticate(accountInput: string, password: string): Prom
     const admin = roles.get(ADMIN_ROLE_ID)!;
     return {
       account: 'admin', name: '系統管理員', role: admin.id, roleName: admin.name, permissions: admin.permissions,
-      scope: admin.scope, mustChangePassword: false, events: ['*'], team: '', exp,
+      scope: admin.scope, mustChangePassword: false, events: ['*'], team: '', exp, permissionVersion: SESSION_PERMISSION_VERSION,
     };
   }
 
@@ -62,6 +62,7 @@ export async function authenticate(accountInput: string, password: string): Prom
     events: splitList(row.可管理活動),
     team: row.小隊 ?? '',
     exp,
+    permissionVersion: SESSION_PERMISSION_VERSION,
   };
 }
 

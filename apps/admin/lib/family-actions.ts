@@ -31,7 +31,7 @@ function diff<T extends string>(fields: readonly T[], formData: FormData, curren
 }
 
 export async function saveHousehold(家庭ID: string, _: FormResult, formData: FormData): Promise<FormResult> {
-  requireSession({ permission: 'admin' });
+  requireSession({ permission: 'families' });
   const current = await households().findById(家庭ID, { fresh: true });
   if (!current) return { error: '找不到此家庭' };
   const changes = diff(HOUSEHOLD_FIELDS, formData, current, HOUSEHOLD_FORM_NAMES);
@@ -43,14 +43,14 @@ export async function saveHousehold(家庭ID: string, _: FormResult, formData: F
 
 /** 重設 PIN：清空 PIN 與鎖定，家長下次用孩子的全名＋生日驗證後重新設定 */
 export async function resetHouseholdPin(家庭ID: string) {
-  requireSession({ permission: 'admin' });
+  requireSession({ permission: 'families' });
   await households().ensure();
   await households().updateByIds([{ id: 家庭ID, changes: { PIN雜湊: '', PIN錯誤次數: '0', PIN鎖定至: '', 更新時間: nowString() } }]);
   revalidatePath(`/families/${家庭ID}`);
 }
 
 export async function saveMember(成員ID: string, _: FormResult, formData: FormData): Promise<FormResult> {
-  requireSession({ permission: 'admin' });
+  requireSession({ permission: 'families' });
   const current = await members().findById(成員ID, { fresh: true });
   if (!current) return { error: '找不到此成員' };
   const changes = diff(MEMBER_FIELDS, formData, current, MEMBER_FORM_NAMES);

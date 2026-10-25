@@ -31,6 +31,28 @@ export default async function ReportsPage({ params }: { params: { eventId: strin
         <Stat label="點名出席率" value={pct(s.attendance.present, s.attendance.recorded)} tone="amber" sub={`${s.attendance.recorded} 人次`} />
       </div>
 
+      {/* 依基地分開：思麥特（國小）、夢夢（學齡前） */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {s.byBase.map((b) => (
+          <Card key={b.short} title={`${b.name}（${b.note}）`}>
+            <div className="mb-3 grid grid-cols-2 gap-3">
+              <Stat label="正取" value={b.accepted} tone="blue" />
+              <Stat label="已報到" value={b.arrived} tone="green" sub={pct(b.arrived, b.accepted)} />
+            </div>
+            {b.courses.length > 0 && (
+              <Table head={['課程', '人數']}>
+                {b.courses.map(([name, n]) => (
+                  <tr key={name}>
+                    <td className="px-2 py-1.5">{name}</td>
+                    <td className="px-2 py-1.5 tabular-nums">{n}</td>
+                  </tr>
+                ))}
+              </Table>
+            )}
+          </Card>
+        ))}
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2">
         <Card title="年級分組（正取）">
           <Table head={['組別', '人數', '已報到', '報到率']}>
@@ -47,7 +69,7 @@ export default async function ReportsPage({ params }: { params: { eventId: strin
         <Breakdown title="報名狀態" rows={s.byStatus} />
         <Breakdown title="報名類型" rows={s.byType} />
         <Breakdown title="報名來源" rows={s.bySource} />
-        {s.byCourse.length > 0 && <Breakdown title="課程" rows={s.byCourse} />}
+
       </div>
 
       <Card title="匯出報表">

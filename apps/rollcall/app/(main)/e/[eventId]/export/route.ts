@@ -1,8 +1,11 @@
 import { requireSession } from '@kids/auth/next';
+import { BASES } from '@kids/schema';
 import { getEvent, loadGroups } from '@/lib/data';
 import { attendance, schedules } from '@/lib/tables';
 
 export const dynamic = 'force-dynamic';
+
+const baseIndex = (b: string) => BASES.findIndex((x) => x.short === b);
 
 const csvCell = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
 
@@ -18,6 +21,7 @@ export async function GET(_req: Request, { params }: { params: { eventId: string
     .map((a) => {
       const s = slotById.get(a.時段ID);
       return [
+        byId.get(a.分組ID)?.基地 ?? '',
         s?.日期 ?? a.時段ID.replace('DAY-', ''),
         s ? `${s.開始}-${s.結束}` : '整日',
         s?.內容 ?? '',
@@ -30,8 +34,13 @@ export async function GET(_req: Request, { params }: { params: { eventId: string
         a.時間,
       ];
     })
-    .sort((x, y) => (x[0] + x[1] + x[4]).localeCompare(y[0] + y[1] + y[4], 'zh-Hant', { numeric: true }));
-  const header = ['日期', '時段', '內容', '分組類型', '分組', '姓名', '狀態', '備註', '點名者', '點名時間'];
+    // 依基地分開排序（思麥特在前），再依日期、時段、分組
+    .sort(
+      (x, y) =>
+        baseIndex(String(x[0])) - baseIndex(String(y[0])) ||
+        (x[1] + x[2] + x[5]).localeCompare(y[1] + y[2] + y[5], 'zh-Hant', { numeric: true }),
+    );
+  const header = ['基地', '日期', '時段', '內容', '分組類型', '分組', '姓名', '狀態', '備註', '點名者', '點名時間'];
   const csv = '﻿' + [header, ...rows].map((r) => r.map((v) => csvCell(String(v ?? ''))).join(',')).join('\r\n');
   return new Response(csv, {
     headers: {

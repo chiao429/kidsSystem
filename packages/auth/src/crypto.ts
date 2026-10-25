@@ -1,5 +1,5 @@
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
-import type { Permission, RoleScope } from '@kids/schema';
+import { upgradeLegacyPermissions, type Permission, type RoleScope } from '@kids/schema';
 
 export interface Session {
   account: string;
@@ -17,7 +17,11 @@ export interface Session {
   /** 負責的小隊（點名用），可空白 */
   team: string;
   exp: number;
+  /** 權限格式版本：2＝依選單項目拆分；沒有這個欄位是拆分前登入的，讀取時換算 */
+  permissionVersion?: number;
 }
+
+export const SESSION_PERMISSION_VERSION = 2;
 
 export function hashPassword(password: string): string {
   const salt = randomBytes(16).toString('hex');
@@ -56,7 +60,10 @@ export function decodeSession(token: string | undefined, secret: string): Sessio
   try {
     const session = JSON.parse(Buffer.from(payload, 'base64url').toString()) as Session;
     // 舊版 session（沒有權限資訊）視為未登入，重新登入即可
-    return session.exp > Date.now() && Array.isArray(session.permissions) ? session : null;
+    if (!(session.exp > Date.now() && Array.isArray(session.permissions))) return null;
+    // 權限拆分前登入的：換算成新版，已登入的人不用重新登入
+    if (session.permissionVersion !== SESSION_PERMISSION_VERSION) session.permissions = upgradeLegacyPermissions(session.permissions, session.scope);
+    return session;
   } catch {
     return null;
   }

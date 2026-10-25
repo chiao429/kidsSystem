@@ -8,7 +8,7 @@ import { households, members } from './tables';
 
 /**
  * 家長端「簡單註冊」：手機＋4 位數 PIN。
- * 忘記 PIN 用孩子的全名＋生日驗證。驗證通過後發一個簽章 cookie（kids_family），之後查詢家庭資料、以「曾經報名過」送出報名都只認這個 cookie，
+ * 忘記 PIN 用孩子的全名＋生日驗證。驗證通過後發一個簽章 cookie（kids_family），之後查詢家庭資料、以「家長登入」送出報名都只認這個 cookie，
  * 不再只憑手機號碼就能看到或代替別人的家庭報名。
  */
 const FAMILY_COOKIE = 'kids_family';
@@ -84,6 +84,11 @@ export function isStaff(): boolean {
   return !!session && !session.mustChangePassword && (session.permissions.includes('checkin') || session.permissions.includes('admin'));
 }
 
+/** 目前登入同工的名稱（記錄收款人等）；沒有登入時為空白 */
+export function currentStaffName(): string {
+  return isStaff() ? getSession()?.name ?? '' : '';
+}
+
 export async function findHousehold(phone: string) {
   const p = normalizePhone(phone);
   if (!p) return null;
@@ -118,7 +123,7 @@ async function clearFailures(h: Household, changes: Record<string, string> = {})
 
 export type FamilyAuthResult = { ok: true } | { ok?: false; error: string; needsSetup?: boolean };
 
-const NOT_FOUND = '找不到這支手機的報名資料，請確認號碼，或改用「第一次報名」';
+const NOT_FOUND = '找不到這支手機的報名資料，請確認號碼，或改用「初次報名」';
 
 export async function loginWithPin(phone: string, pin: string, remember: boolean): Promise<FamilyAuthResult> {
   const h = await findHousehold(phone);
@@ -172,7 +177,7 @@ export async function setPinAfterVerify(pin: string, confirm: string, remember: 
 }
 
 /**
- * 「曾經報名過」要用的家庭：家長以 PIN 驗證過的家庭；或同工現場以手機查詢。
+ * 「家長登入」要用的家庭：家長以 PIN 驗證過的家庭；或同工現場以手機查詢。
  * 兩者都不是就回 null（呼叫端回傳需要登入的錯誤）。
  */
 export async function resolveReturningFamily(staffPhone?: string) {

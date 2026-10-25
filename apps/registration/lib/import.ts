@@ -156,6 +156,10 @@ export async function importRows(event: EventInfo, raw: Raw[], dryRun: boolean):
       備註: row.serial ? `原報名序號 ${row.serial}` : '',
       照片影片公開同意: '',
       後續活動通知同意: '',
+      繳費狀態: '',
+      繳費金額: '',
+      繳費時間: '',
+      收款人: '',
     });
   });
 

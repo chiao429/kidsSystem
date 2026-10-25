@@ -1,0 +1,118 @@
+'use client';
+
+import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { withBase, type NavItem } from './components';
+
+/** 左側選單的可展開群組（例如「系統設定」）；目前所在頁面屬於這個群組時自動展開 */
+export function NavGroup({ item }: { item: NavItem }) {
+  const pathname = usePathname();
+  const children = item.children ?? [];
+  const active = children.some((c) => pathname === c.href || pathname.startsWith(`${c.href}/`));
+  const [open, setOpen] = useState(active);
+  useEffect(() => {
+    if (active) setOpen(true);
+  }, [active]);
+  return (
+    <div>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between rounded-xl px-4 py-3 text-left font-medium text-white/85 transition hover:bg-white/15 hover:text-white"
+      >
+        {item.label}
+        <span aria-hidden className={`text-xs transition-transform ${open ? 'rotate-180' : ''}`}>
+          ▾
+        </span>
+      </button>
+      {open && (
+        <div className="mt-1 flex flex-col gap-1 border-l border-white/25 pl-3 ml-5">
+          {children.map((c) => {
+            const current = pathname === c.href || pathname.startsWith(`${c.href}/`);
+            return (
+              <a
+                key={c.href}
+                href={withBase(c.href)}
+                aria-current={current ? 'page' : undefined}
+                className={`rounded-xl px-3 py-2 transition hover:bg-white/15 hover:text-white ${current ? 'bg-white/20 font-semibold text-white' : 'text-white/80'}`}
+              >
+                {c.label}
+              </a>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** 手機版選單：右上角漢堡按鈕，點開後由上方展開完整選單（含系統設定群組、其他系統、改密碼、登出） */
+export function MobileMenu({
+  nav,
+  systems,
+  user,
+  logoutAction,
+}: {
+  nav: NavItem[];
+  systems: NavItem[];
+  user?: string;
+  logoutAction?: () => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+  // 換頁後收起選單
+  useEffect(() => setOpen(false), [pathname]);
+  const link = 'block rounded-xl px-4 py-3 font-medium text-white/85 hover:bg-white/15 hover:text-white';
+  return (
+    <div className="ml-auto lg:hidden">
+      <button
+        type="button"
+        aria-label={open ? '關閉選單' : '開啟選單'}
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className="flex h-10 w-10 flex-col items-center justify-center gap-1.5 rounded-xl hover:bg-white/15"
+      >
+        <span className={`h-0.5 w-6 rounded bg-white transition ${open ? 'translate-y-2 rotate-45' : ''}`} />
+        <span className={`h-0.5 w-6 rounded bg-white transition ${open ? 'opacity-0' : ''}`} />
+        <span className={`h-0.5 w-6 rounded bg-white transition ${open ? '-translate-y-2 -rotate-45' : ''}`} />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 top-[72px] z-20 bg-black/40" onClick={() => setOpen(false)} aria-hidden />
+          <nav className="absolute inset-x-0 top-full z-30 max-h-[calc(100vh-72px)] overflow-y-auto bg-gradient-to-b from-[#5969ed] to-[#4c7cf0] px-4 py-4 text-sm shadow-lg">
+            {user && <div className="mb-2 px-4 text-xs text-white/70">目前登入：{user}</div>}
+            {nav.map((n) =>
+              n.children ? (
+                <NavGroup key={n.label} item={n} />
+              ) : (
+                <a key={n.href} href={withBase(n.href)} className={link}>
+                  {n.label}
+                </a>
+              ),
+            )}
+            <div className="mt-3 border-t border-white/20 pt-3">
+              {systems.length > 0 && <div className="px-4 pb-1 text-xs text-white/60">其他系統</div>}
+              {systems.map((n) => (
+                <a key={n.href} href={n.href} className={link}>
+                  {n.label}
+                </a>
+              ))}
+              {systems.length > 0 && user && <div className="my-2 border-t border-white/20" />}
+              {user && (
+                <>
+                  <a href={withBase('/password')} className={link}>
+                    改密碼
+                  </a>
+                  <form action={logoutAction}>
+                    <button className={`${link} w-full text-left`}>登出</button>
+                  </form>
+                </>
+              )}
+            </div>
+          </nav>
+        </>
+      )}
+    </div>
+  );
+}

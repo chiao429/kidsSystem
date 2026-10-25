@@ -49,6 +49,7 @@ export async function formProps(event: EventInfo) {
     courses,
     maxCoursesPerMember: r.maxCoursesPerMember ?? 0,
     allowOnSiteCourseRegistration: r.allowOnSiteCourseRegistration ?? true,
+    allowCourseChange: r.allowCourseChange ?? false,
     defaultType: event.版本 === EventVersion.Adult ? MemberType.Adult : MemberType.Child,
   };
 }

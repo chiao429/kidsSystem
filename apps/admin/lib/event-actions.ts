@@ -3,13 +3,14 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { requireSession } from '@kids/auth/next';
-import { EventStatus, EventVersion, GROUP_TYPES, type EventRules, type GroupType } from '@kids/schema';
+import { EventStatus, EventVersion, GROUP_TYPES, newId, parseCoursePanels, type EventRules, type GroupType } from '@kids/schema';
 import type { FormResult } from '@kids/ui/client';
 import { sanitizeRichText } from '@kids/ui/rich-text';
 import { dataBackend, extractSheetIdFromUrl } from '@kids/sheets-core';
-import { ensureEventTables, events, registrations } from './tables';
+import { ensureEventTables, events, groups, registrations, schedules, surveys } from './tables';
 import { getEvent, isSheetRequired } from './events';
 import { writeLog } from './log';
+import { OTHER, dateLabel, formatDated } from './event-info';
 
 /**
  * 讀取設定表單：只回傳表單上有的欄位。活動時間、地點、適用對象等舊欄位已不在表單上，
@@ -28,6 +29,7 @@ function readEventForm(formData: FormData, current: EventRules = {}) {
     existingOnly: formData.get('existingOnly') === 'on',
     maxCoursesPerMember: Math.max(0, Math.floor(Number(s('maxCoursesPerMember')) || 0)),
     allowOnSiteCourseRegistration: formData.get('allowOnSiteCourseRegistration') === 'on',
+    allowCourseChange: formData.get('allowCourseChange') === 'on',
   };
   const status = s('status');
   return {
@@ -52,9 +54,26 @@ function sheetOrDefault(eventId: string, sheet: string) {
   return process.env.SHEETS_LOCAL_DIR && dataBackend() !== 'mongo' ? `event-${eventId}` : '';
 }
 
+/** 複製活動時沿用的活動欄位（報名頁內容）；名稱、日期、報名時間與規則以表單為準 */
+const COPIED_EVENT_COLUMNS = ['活動時間', '地點', '報到時間', '繳費時間', '活動說明', '適用對象', '報名提醒', '備註', '簽名檔', '分組說明'] as const;
+
+/** 複製課程、小隊、時間表與問卷到新活動（換新 ID；時間表的分組ID 對應到新的分組） */
+async function copyEventContent(fromId: string, toId: string) {
+  const [srcGroups, srcSchedules, srcSurveys] = await Promise.all([groups(fromId).all(), schedules(fromId).all(), surveys(fromId).all()]);
+  const groupIdMap = new Map(srcGroups.map((g) => [g.分組ID, newId('分組ID')]));
+  if (srcGroups.length) await groups(toId).append(srcGroups.map((g) => ({ ...g, 分組ID: groupIdMap.get(g.分組ID)! })));
+  // 分組已不存在的時段改為不限分組，避免指向舊活動的分組
+  if (srcSchedules.length)
+    await schedules(toId).append(srcSchedules.map((s) => ({ ...s, 時段ID: newId('時段ID'), 分組ID: s.分組ID ? groupIdMap.get(s.分組ID) ?? '' : '' })));
+  if (srcSurveys.length) await surveys(toId).append(srcSurveys.map((s) => ({ ...s, 問卷ID: newId('問卷ID') })));
+}
+
 export async function createEvent(_: FormResult, formData: FormData): Promise<FormResult> {
   const session = requireSession({ permission: 'admin', allEvents: true });
-  const form = readEventForm(formData);
+  const copyFromId = String(formData.get('copyFrom') ?? '').trim();
+  const source = copyFromId ? await getEvent(copyFromId).catch(() => undefined) : undefined;
+  if (copyFromId && !source) return { error: '找不到要複製的活動' };
+  const form = { ...readEventForm(formData, source && { ...source.rules, statusBeforeArchive: undefined }), ...(source ? Object.fromEntries(COPIED_EVENT_COLUMNS.map((c) => [c, source[c] ?? ''])) : {}) };
   if (!/^[A-Za-z0-9_-]+$/.test(form.活動ID)) return { error: '活動ID 只能使用英數字、- 與 _' };
   if (!form.名稱 || !form.開始日期) return { error: '請填寫活動名稱與開始日期' };
   if (!form.活動試算表 && isSheetRequired()) return { error: '請在「進階設定」填寫活動試算表連結' };
@@ -67,7 +86,8 @@ export async function createEvent(_: FormResult, formData: FormData): Promise<Fo
     return { error: `無法存取活動試算表，請確認已共用給 service account：${e instanceof Error ? e.message : e}` };
   }
   await events().append([row]);
-  await writeLog(row.活動ID, session, '建立活動', row.活動ID);
+  if (source) await copyEventContent(source.活動ID, row.活動ID);
+  await writeLog(row.活動ID, session, source ? '複製活動' : '建立活動', row.活動ID, source ? `來源：${source.活動ID}` : undefined);
   redirect(`/events/${row.活動ID}`);
 }
 
@@ -83,6 +103,47 @@ export async function updateEvent(eventId: string, _: FormResult, formData: Form
   await events().updateByIds([{ id: eventId, changes }]);
   await writeLog(event.活動ID, session, '更新活動', eventId);
   revalidatePath(`/events/${eventId}`);
+  return { message: '已儲存' };
+}
+
+/** 活動說明分頁的「時間與地點」：組成家長看到的文字後存進活動時間、地點、報到時間 */
+export async function saveEventInfo(eventId: string, _: FormResult, formData: FormData): Promise<FormResult> {
+  const session = requireSession({ permission: 'admin', eventId });
+  const event = await getEvent(eventId);
+  const s = (k: string) => String(formData.get(k) ?? '').trim().slice(0, 100);
+  // radio 選「其他」時用旁邊輸入框的文字
+  const pick = (choice: string, other: string) => (s(choice) === OTHER ? s(other) : s(choice));
+  const date = s('infoDate');
+  const checkinDate = s('checkinDate');
+  if ((date && !dateLabel(date)) || (checkinDate && !dateLabel(checkinDate))) return { error: '日期格式不正確' };
+  const changes = {
+    活動時間: formatDated(date, pick('infoTime', 'infoTimeOther')),
+    地點: pick('venue', 'venueOther'),
+    報到時間: formatDated(checkinDate, pick('checkinTime', 'checkinTimeOther'), s('checkinSuffix')),
+  };
+  if (!date && changes.活動時間) return { error: '請選擇活動日期' };
+  if (!checkinDate && changes.報到時間) return { error: '請選擇報到日期' };
+  await events().updateByIds([{ id: eventId, changes }]);
+  await writeLog(event.活動ID, session, '更新時間與地點', eventId, [changes.活動時間, changes.地點, changes.報到時間].filter(Boolean).join('｜'));
+  revalidatePath(`/events/${eventId}/description`);
+  return { message: '已儲存' };
+}
+
+/** 報名頁內容：各課程分組卡片的對象與內容（表單以序號對應分組名稱） */
+export async function saveCoursePanels(eventId: string, _: FormResult, formData: FormData): Promise<FormResult> {
+  const session = requireSession({ permission: 'admin', eventId });
+  const event = await getEvent(eventId);
+  const s = (k: string) => String(formData.get(k) ?? '').trim().slice(0, 200);
+  const panels = parseCoursePanels(event.分組說明);
+  const count = Math.min(Number(s('panelCount')) || 0, 50);
+  for (let i = 0; i < count; i++) {
+    const group = s(`panelGroup-${i}`);
+    if (group) panels[group] = { 對象: s(`panelAudience-${i}`), 內容: s(`panelContent-${i}`) };
+  }
+  await events().ensure();
+  await events().updateByIds([{ id: eventId, changes: { 分組說明: JSON.stringify(panels) } }]);
+  await writeLog(event.活動ID, session, '更新課程分組說明', eventId);
+  revalidatePath(`/events/${eventId}/description`);
   return { message: '已儲存' };
 }
 

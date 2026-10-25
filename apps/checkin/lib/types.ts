@@ -1,4 +1,4 @@
-import type { GroupType } from '@kids/schema';
+import type { BaseName, GroupType } from '@kids/schema';
 
 export interface BoardRow {
   報名ID: string;
@@ -22,6 +22,13 @@ export interface BoardRow {
   報到時間: string;
   晚到: boolean;
   已聯繫: boolean;
+  /** 已繳｜空白 */
+  繳費狀態: string;
+  繳費金額: string;
+  /** 應收：正取課程的材料費合計 */
+  應繳: number;
+  /** 依年級：思麥特（國小）｜夢夢（學齡前） */
+  基地: BaseName;
 }
 
 export interface GroupInfo {

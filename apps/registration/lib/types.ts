@@ -25,7 +25,7 @@ export interface RegisterPayload {
   source: string;
   household: HouseholdInput;
   members: MemberInput[];
-  /** new：第一次報名（建立家庭）；returning：曾經報名過（家庭由 PIN 驗證的 cookie 決定） */
+  /** new：第一次報名（建立家庭）；returning：家長登入（家庭由 PIN 驗證的 cookie 決定） */
   mode: 'new' | 'returning';
   /** 同工現場報名：以手機號碼查詢既有家庭（需同工登入，家長端不會帶這個欄位） */
   lookup?: { phone: string };
@@ -34,6 +34,8 @@ export interface RegisterPayload {
   pinConfirm?: string;
   /** 記住這台裝置 */
   remember?: boolean;
+  /** 同工現場報名：已當場收取材料費 */
+  paid?: boolean;
   consent: boolean;
   photoConsent: boolean;
   followUpConsent: boolean;
@@ -52,7 +54,12 @@ export interface LookupResult {
   /** 此家庭在本活動已完成的報名（用來顯示報到 QR code） */
   registrationIds?: string[];
   household?: HouseholdInput & { 家庭ID: string };
-  members?: (Omit<MemberInput, 'courses' | 'selected'> & { 成員ID: string; registered: boolean })[];
+  members?: (Omit<MemberInput, 'courses' | 'selected'> & {
+    成員ID: string;
+    registered: boolean;
+    /** 已報名本活動時的報名內容（唯讀顯示） */
+    registration?: { 序號: string; 狀態: string; 年級: string; 課程: string; 課程ID: string[] };
+  })[];
 }
 
 export interface CourseOption {

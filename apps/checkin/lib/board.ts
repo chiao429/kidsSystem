@@ -1,6 +1,6 @@
 import 'server-only';
 import {
-  CheckInStatus, GroupType, LEARNER_ROLES, RegistrationStatus, gradeRank, groupsOfType, hasGroupType, nowString,
+  CheckInStatus, ENROLLED_ROLES, baseOf, GroupRole, GroupType, LEARNER_ROLES, RegistrationStatus, courseLabel, gradeRank, groupsOfType, hasGroupType, nowString,
 } from '@kids/schema';
 import { getEvent } from './events';
 import { checkIns, groupMembers, groups, households, members, registrations, schedules } from './tables';
@@ -21,23 +21,29 @@ export async function loadGroups(eventId: string): Promise<{ groupTypes: GroupTy
 /** 報到看板；course 為課程分組ID，空白為一般報到 */
 export async function loadBoard(eventId: string, course = ''): Promise<Board> {
   const event = await getEvent(eventId);
-  const [regs, mm, hh, gm, cc, info] = await Promise.all([
+  const [regs, mm, hh, gm, cc, info, gg] = await Promise.all([
     registrations(event.活動ID).all(),
     members().all(),
     households().all(),
     groupMembers(event.活動ID).all(),
     checkIns(event.活動ID).all(),
     loadGroups(eventId),
+    groups(event.活動ID).all(),
   ]);
+  const feeById = new Map(gg.map((g) => [g.分組ID, Number(g.材料費) || 0]));
   const memberById = new Map(mm.map((m) => [m.成員ID, m]));
   const householdById = new Map(hh.map((h) => [h.家庭ID, h]));
   const groupById = new Map(info.groups.map((g) => [g.分組ID, g]));
   const learners = gm.filter((m) => LEARNER_ROLES.includes(m.角色) && groupById.has(m.分組ID));
   const teamByMember = new Map(learners.filter((m) => m.類型 === GroupType.Team).map((m) => [m.成員ID, groupById.get(m.分組ID)!]));
-  const coursesByReg = new Map<string, { 分組ID: string; 名稱: string }[]>();
-  for (const m of learners.filter((x) => x.類型 === GroupType.Course)) {
+  // 課程含備取（名稱後加「（備取）」，不收費）
+  const coursesByReg = new Map<string, { 分組ID: string; 名稱: string; 備取: boolean }[]>();
+  for (const m of gm.filter((x) => x.類型 === GroupType.Course && ENROLLED_ROLES.includes(x.角色) && groupById.has(x.分組ID))) {
     const key = m.報名ID || m.成員ID;
-    coursesByReg.set(key, [...(coursesByReg.get(key) ?? []), { 分組ID: m.分組ID, 名稱: groupById.get(m.分組ID)!.名稱 }]);
+    coursesByReg.set(key, [
+      ...(coursesByReg.get(key) ?? []),
+      { 分組ID: m.分組ID, 名稱: courseLabel(groupById.get(m.分組ID)!.名稱, m.角色), 備取: m.角色 === GroupRole.Waitlist },
+    ]);
   }
   const checkInByKey = new Map(cc.map((c) => [checkInKey(c.報名ID, c.分組ID), c]));
 
@@ -63,7 +69,7 @@ export async function loadBoard(eventId: string, course = ''): Promise<Board> {
         區域: t?.區域 ?? '',
         報名狀態: r.狀態,
         報名類型: r.報名類型,
-        課程: courses,
+        課程: courses.map(({ 分組ID, 名稱 }) => ({ 分組ID, 名稱 })),
         家長: h?.主要聯絡人 ?? '',
         電話: h?.電話 ?? '',
         特殊需求: m?.特殊需求 ?? '',
@@ -71,6 +77,10 @@ export async function loadBoard(eventId: string, course = ''): Promise<Board> {
         報到時間: c?.狀態 === CheckInStatus.Arrived ? c.報到時間 : '',
         晚到: c?.晚到 === 'Y',
         已聯繫: c?.已聯繫 === 'Y',
+        繳費狀態: r.繳費狀態 ?? '',
+        繳費金額: r.繳費金額 ?? '',
+        基地: baseOf(m?.年級 || r.年級),
+        應繳: courses.filter((x) => !x.備取).reduce((sum, x) => sum + (feeById.get(x.分組ID) ?? 0), 0),
       };
     })
     .sort((a, b) => (Number(a.序號) || 1e9) - (Number(b.序號) || 1e9) || gradeRank(a.年級) - gradeRank(b.年級));

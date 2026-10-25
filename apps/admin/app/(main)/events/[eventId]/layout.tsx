@@ -1,10 +1,8 @@
-import Link from 'next/link';
 import { requireSession } from '@kids/auth/next';
 import { GroupType, hasGroupType, isArchivedEvent } from '@kids/schema';
 import { Alert, Badge } from '@kids/ui';
 import { getEvent } from '@/lib/events';
-
-const tabClass = 'rounded-t-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100';
+import { EventTabs } from '@/components/EventTabs';
 
 export default async function EventLayout({ children, params }: { children: React.ReactNode; params: { eventId: string } }) {
   requireSession({ permission: 'admin', eventId: params.eventId });
@@ -12,7 +10,7 @@ export default async function EventLayout({ children, params }: { children: Reac
   const base = `/events/${params.eventId}`;
   const tabs = [
     ['', '設定'],
-    ['/description', '活動說明'],
+    ['/description', '報名頁內容'],
     ['/groups', '課程'],
     ['/registrations', '報名'],
     ['/logs', '日誌'],
@@ -38,23 +36,7 @@ export default async function EventLayout({ children, params }: { children: Reac
         )}
       </div>
       {isArchivedEvent(event) && <Alert tone="amber">此活動已封存，家長端與報到、點名系統都看不到。要恢復請到活動清單的「已封存」按「還原」。</Alert>}
-      <nav className="flex flex-wrap items-center gap-1 border-b border-gray-200">
-        {tabs.map(([path, label]) => (
-          <Link key={path} href={base + path} className={tabClass}>
-            {label}
-          </Link>
-        ))}
-        <details className="relative">
-          <summary className={`${tabClass} cursor-pointer list-none`}>更多 ▾</summary>
-          <div className="absolute left-0 z-20 mt-1 min-w-32 rounded-xl border border-gray-200 bg-white p-1 shadow-lg">
-            {more.map(([path, label]) => (
-              <Link key={path} href={base + path} className="block rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                {label}
-              </Link>
-            ))}
-          </div>
-        </details>
-      </nav>
+      <EventTabs base={base} tabs={tabs} more={more} />
       {children}
     </div>
   );

@@ -54,7 +54,7 @@ export const HouseholdTable = defineTable({
   key: 'households',
   scope: 'master',
   idColumn: '家庭ID',
-  // PIN：家長「曾經報名過」時以手機＋4 位數 PIN 帶入資料；連續錯誤會暫時鎖定
+  // PIN：家長登入時以手機＋4 位數 PIN 帶入資料；連續錯誤會暫時鎖定
   headers: ['家庭ID', '主要聯絡人', '電話', 'Email', '地址', '建立時間', '更新時間', 'PIN雜湊', 'PIN錯誤次數', 'PIN鎖定至'],
   owner: 'registration',
   // admin 可重設 PIN（清空後家長用孩子生日驗證再設定）
@@ -113,6 +113,10 @@ export const EventTable = defineTable({
     '活動ID', '名稱', '版本', '活動試算表', '開始日期', '結束日期',
     '活動時間', '地點', '報到時間', '繳費時間', '活動說明', '適用對象', '報名提醒',
     '報名開放', '報名截止', '報名規則', '狀態', '備註',
+    // 家長頁活動說明下方的簽名檔：空白＝使用預設簽名檔；「無」＝不顯示；其餘為簽名檔ID
+    '簽名檔',
+    // 家長頁各課程分組卡片的對象與內容（JSON：{ "角落活動": { "對象": "...", "內容": "..." } }）
+    '分組說明',
   ],
   owner: 'admin',
 });
@@ -127,10 +131,13 @@ export const RegistrationTable = defineTable({
   headers: [
     '報名ID', '序號', '成員ID', '家庭ID', '姓名', '年級', '報名類型',
     '狀態', '來源', '報名時間', '備註', '照片影片公開同意', '後續活動通知同意',
+    // 繳費：現場報名時或報到時記錄（繳費狀態＝已繳｜空白）
+    '繳費狀態', '繳費金額', '繳費時間', '收款人',
   ],
   owner: 'registration',
   updatableBy: {
-    admin: ['狀態', '備註'],
+    admin: ['狀態', '備註', '繳費狀態', '繳費金額', '繳費時間', '收款人'],
+    checkin: ['繳費狀態', '繳費金額', '繳費時間', '收款人'],
   },
   sheetEditable: ['狀態', '備註'],
   /** 課程：由分組成員組出（例：美勞課、音樂課） */
@@ -229,7 +236,18 @@ export const LogTable = defineTable({
   owner: 'admin', // 例外：所有系統都可 append
 });
 
-export const MASTER_TABLES = [HouseholdTable, MemberTable, AccountTable, RoleTable, EventTable] as const;
+/** 簽名檔：顯示在家長頁活動說明下方的共用段落（提醒事項、粉專聯絡方式等），各活動可選用 */
+export const SignatureTable = defineTable({
+  tab: '簽名檔',
+  key: 'signatures',
+  scope: 'master',
+  idColumn: '簽名檔ID',
+  // 內容為消毒過的 HTML；預設 = 'Y' 的簽名檔用於沒有另外指定的活動（只會有一個）
+  headers: ['簽名檔ID', '名稱', '內容', '預設', '排序', '更新時間'],
+  owner: 'admin',
+});
+
+export const MASTER_TABLES = [HouseholdTable, MemberTable, AccountTable, RoleTable, EventTable, SignatureTable] as const;
 export const EVENT_TABLES = [
   RegistrationTable, CheckInTable, GroupTable, GroupMemberTable, ScheduleTable,
   AttendanceTable, SurveyTable, SurveyResponseTable, LogTable,

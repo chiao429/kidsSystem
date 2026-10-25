@@ -2,7 +2,7 @@ import 'server-only';
 import { canAccessEvent, type Session } from '@kids/auth';
 import {
   CheckInStatus, EventStatus, GROUP_TYPES, GroupType, RegistrationStatus, groupsOfType, hasGroupType, isArchivedEvent,
-  leaderGroupIds, membersOfGroup, parseRules, splitList,
+  LEARNER_ROLES, groupBaseOf, leaderGroupIds, membersOfGroup, parseRules, splitList, type BaseName,
 } from '@kids/schema';
 import type { EventRules } from '@kids/schema';
 import { extractSheetIdFromUrl } from '@kids/sheets-core';
@@ -36,6 +36,8 @@ export interface GroupRef {
   分組ID: string;
   類型: GroupType;
   名稱: string;
+  /** 思麥特（國小）｜夢夢（學齡前） */
+  基地: BaseName;
 }
 
 /**
@@ -44,9 +46,18 @@ export interface GroupRef {
  * - allowed：staff 只能點自己負責的；admin/manager 可點全部
  */
 export async function loadGroups(eventId: string, session: Session, rules: EventRules = {}) {
-  const [gg, gm] = await Promise.all([groups(eventId).all(), groupMembers(eventId).all()]);
+  const [gg, gm, regs] = await Promise.all([groups(eventId).all(), groupMembers(eventId).all(), registrations(eventId).all()]);
   const types = GROUP_TYPES.filter((t) => hasGroupType(rules, t));
-  const all: GroupRef[] = types.flatMap((t) => groupsOfType(gg, t)).map((g) => ({ 分組ID: g.分組ID, 類型: g.類型 as GroupType, 名稱: g.名稱 }));
+  const gradeOf = new Map(regs.map((r) => [r.報名ID, r.年級]));
+  const gradeByMember = new Map(regs.map((r) => [r.成員ID, r.年級]));
+  const gradesOf = (分組ID: string) =>
+    gm
+      .filter((m) => m.分組ID === 分組ID && LEARNER_ROLES.includes(m.角色))
+      .map((m) => gradeOf.get(m.報名ID) ?? gradeByMember.get(m.成員ID) ?? '')
+      .filter(Boolean);
+  const all: GroupRef[] = types
+    .flatMap((t) => groupsOfType(gg, t))
+    .map((g) => ({ 分組ID: g.分組ID, 類型: g.類型 as GroupType, 名稱: g.名稱, 基地: groupBaseOf(g, gradesOf(g.分組ID)) }));
   const legacy = splitList(session.team);
   const mineIds = new Set([...leaderGroupIds(gm, session.account), ...all.filter((g) => legacy.includes(g.名稱)).map((g) => g.分組ID)]);
   const mine = all.filter((g) => mineIds.has(g.分組ID));

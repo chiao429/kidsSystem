@@ -1,12 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
-import { Alert, Badge, Button, Card, Input, Select } from '@kids/ui';
-import { checkInMany, fetchBoard, lookupScan, setStatus, toggleFlag } from '@/lib/actions';
+import { Alert, Badge, Button, Card, Input, Select, buttonClass } from '@kids/ui';
+import { checkInMany, fetchBoard, lookupScan, setPayment, setStatus, toggleFlag } from '@/lib/actions';
 import { CheckInStatus } from '@kids/schema';
 import type { ActionResult, Board, BoardRow, ScanRow } from '@/lib/types';
 import { ConfirmDialog, MessageDialog, ResultDialog, blockedReason, needsConfirm, type ResultState } from './CheckInDialogs';
 import { Scanner } from './Scanner';
+import { BaseTabs, useBaseFilter } from './BaseTabs';
 
 const REFRESH_MS = 10_000;
 
@@ -17,10 +18,11 @@ function statusBadge(r: BoardRow) {
   return <Badge tone="red">未到</Badge>;
 }
 
-export function CheckInBoard({ eventId, initial, registrationUrl }: { eventId: string; initial: Board; registrationUrl?: string }) {
+export function CheckInBoard({ eventId, initial, autoCheckIn = [] }: { eventId: string; initial: Board; autoCheckIn?: string[] }) {
   const [board, setBoard] = useState(initial);
   const [course, setCourse] = useState(initial.course);
   const [query, setQuery] = useState('');
+  const [base, setBase] = useBaseFilter(eventId);
   const [filter, setFilter] = useState<'all' | 'pending' | 'arrived'>('all');
   const [flash, setFlash] = useState<{ tone: 'green' | 'red' | 'amber'; text: string } | null>(null);
   const [scanning, setScanning] = useState(false);
@@ -30,6 +32,12 @@ export function CheckInBoard({ eventId, initial, registrationUrl }: { eventId: s
   const dialogOpen = !!confirming || !!result || !!message;
   const [pending, startTransition] = useTransition();
   const searchRef = useRef<HTMLInputElement>(null);
+  // 剛現場報名的孩子：標示並排在最上面
+  const [highlight] = useState<Set<string>>(new Set(autoCheckIn));
+  // 收費視窗（不用瀏覽器的 prompt，部分環境不支援）
+  const [paying, setPaying] = useState<{ row: BoardRow; amount: string } | null>(null);
+  // 確認視窗（瀏覽器的 confirm() 在部分環境不支援，改用頁面內視窗）
+  const [asking, setAsking] = useState<{ text: string; ok: string; run: () => void } | null>(null);
 
   const refresh = useCallback(
     (c = course) => fetchBoard(eventId, c).then(setBoard).catch(() => setFlash({ tone: 'red', text: '更新失敗，請檢查網路' })),
@@ -72,6 +80,37 @@ export function CheckInBoard({ eventId, initial, registrationUrl }: { eventId: s
     runCheckIn(rows, method, rows.filter((r) => !blockedReason(r)).map((r) => ({ 報名ID: r.報名ID })));
   };
 
+  // 現場報名完成回到這裡：直接幫剛報名的孩子報到（一般報到），並清掉網址上的參數
+  const autoDone = useRef(false);
+  useEffect(() => {
+    if (autoDone.current || autoCheckIn.length === 0) return;
+    autoDone.current = true;
+    window.history.replaceState(null, '', window.location.pathname);
+    const rows = board.rows.filter((r) => autoCheckIn.includes(r.報名ID)).map((r) => ({ ...r, enrolled: true }));
+    if (rows.length > 0) runCheckIn(rows, '現場', rows.map((r) => ({ 報名ID: r.報名ID })));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const pay = (r: BoardRow) => {
+    if (r.繳費狀態 === '已繳') {
+      setAsking({ text: `取消 ${r.姓名} 的繳費紀錄（${r.繳費金額} 元）？`, ok: '取消繳費', run: () => act(() => setPayment(eventId, r.報名ID, false, 0)) });
+      return;
+    }
+    setPaying({ row: r, amount: String(r.應繳) });
+  };
+  const confirmPay = () => {
+    if (!paying) return;
+    const { row, amount } = paying;
+    setPaying(null);
+    // 繳費完成同時報到（還沒報到的才報到；標記不會出席的不動）
+    startTransition(async () => {
+      const res = await setPayment(eventId, row.報名ID, true, Number(amount));
+      show(res);
+      await refresh();
+      if (!res.error && row.報到狀態 !== '已到' && row.報到狀態 !== '不會出席') startCheckIn(row);
+    });
+  };
+
   const startCheckIn = (row: BoardRow, method = '搜尋') => handleRows([{ ...row, enrolled: true }], method);
 
   const act = (fn: () => Promise<ActionResult>) =>
@@ -103,6 +142,7 @@ export function CheckInBoard({ eventId, initial, registrationUrl }: { eventId: s
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
     return board.rows
+      .filter((r) => !base || r.基地 === base)
       .filter((r) => (filter === 'arrived' ? r.報到狀態 === '已到' : filter === 'pending' ? r.報到狀態 !== '已到' : true))
       .filter(
         (r) =>
@@ -113,18 +153,21 @@ export function CheckInBoard({ eventId, initial, registrationUrl }: { eventId: s
           r.家長.includes(q) ||
           r.電話.includes(q) ||
           r.小隊.toLowerCase().includes(q),
-      );
-  }, [board, query, filter]);
+      )
+      .sort((a, b) => Number(highlight.has(b.報名ID)) - Number(highlight.has(a.報名ID)));
+  }, [board, query, filter, highlight, base]);
 
-  const arrived = board.rows.filter((r) => r.報到狀態 === '已到').length;
+  const baseRows = base ? board.rows.filter((r) => r.基地 === base) : board.rows;
+  const arrived = baseRows.filter((r) => r.報到狀態 === '已到').length;
 
   return (
     <div className="space-y-4">
+      <BaseTabs rows={board.rows} value={base} onChange={setBase} />
       <Card>
         <div className="flex flex-wrap items-center gap-3">
           <div className="text-lg font-semibold">
             已到 <span className="text-2xl text-emerald-700 tabular-nums">{arrived}</span>
-            <span className="text-gray-500"> / {board.rows.length}</span>
+            <span className="text-gray-500"> / {baseRows.length}</span>
           </div>
           {board.groups.some((g) => g.類型 === '課程') && (
             <Select
@@ -149,11 +192,10 @@ export function CheckInBoard({ eventId, initial, registrationUrl }: { eventId: s
             <Button variant="secondary" onClick={() => setScanning((v) => !v)}>
               📷 掃描 QR
             </Button>
-            {registrationUrl && (
-              <a href={`${registrationUrl}/e/${eventId}/new?source=現場`} target="_blank" rel="noreferrer">
-                <Button variant="secondary">＋ 現場報名</Button>
-              </a>
-            )}
+            {/* 跨系統：報名系統的現場報名頁，完成後會帶著報名ID 回到這裡直接報到 */}
+            <a href={`/e/${eventId}/onsite`} className={buttonClass('secondary')}>
+              ＋ 現場報名
+            </a>
           </div>
         </div>
         {scanning && (
@@ -205,11 +247,72 @@ export function CheckInBoard({ eventId, initial, registrationUrl }: { eventId: s
         />
       )}
       {result && <ResultDialog result={result} onClose={closeResult} />}
+      {asking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="alertdialog" aria-modal="true" aria-labelledby="ask-text">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-xl">
+            <p id="ask-text" className="text-lg font-bold">
+              {asking.text}
+            </p>
+            <div className="mt-6 flex justify-end gap-2">
+              <Button variant="secondary" autoFocus onClick={() => setAsking(null)}>
+                返回
+              </Button>
+              <Button
+                variant="danger"
+                onClick={() => {
+                  const { run } = asking;
+                  setAsking(null);
+                  run();
+                }}
+              >
+                {asking.ok}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {paying && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="pay-title">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-xl">
+            <h2 id="pay-title" className="text-lg font-bold">
+              收費：{paying.row.姓名}
+            </h2>
+            <p className="mt-1 text-sm text-gray-600">
+              {paying.row.報到狀態 !== '已到' && paying.row.報到狀態 !== '不會出席' && '收費後會同時完成報到。'}
+              應收 {paying.row.應繳} 元{paying.row.課程.length > 0 && `（${paying.row.課程.map((c) => c.名稱).join('、')}）`}
+            </p>
+            <label className="mt-4 block text-sm font-medium text-gray-700">
+              收取金額（元）
+              <Input
+                type="number"
+                min={0}
+                inputMode="numeric"
+                autoFocus
+                className="mt-1 text-lg"
+                value={paying.amount}
+                onChange={(e) => setPaying({ ...paying, amount: e.target.value })}
+                onKeyDown={(e) => e.key === 'Enter' && confirmPay()}
+              />
+            </label>
+            <div className="mt-6 flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setPaying(null)}>
+                取消
+              </Button>
+              <Button onClick={confirmPay} disabled={pending || paying.amount === ''}>
+                {paying.row.報到狀態 !== '已到' && paying.row.報到狀態 !== '不會出席' ? '確認收費並報到' : '確認收費'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       {message && <MessageDialog text={message} onClose={closeMessage} />}
 
       <div className="space-y-2">
         {rows.slice(0, 100).map((r) => (
-          <div key={r.報名ID} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-gray-200 bg-white p-3">
+          <div
+            key={r.報名ID}
+            className={`flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border bg-white p-3 ${highlight.has(r.報名ID) ? 'border-emerald-400 ring-2 ring-emerald-200' : 'border-gray-200'}`}
+          >
             <div className="min-w-[10rem] flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-lg font-semibold">{r.姓名}</span>
@@ -218,6 +321,9 @@ export function CheckInBoard({ eventId, initial, registrationUrl }: { eventId: s
                 {r.晚到 && <Badge tone="amber">晚到</Badge>}
                 {r.報名狀態 !== '正取' && <Badge tone="purple">{r.報名狀態}</Badge>}
                 {r.報名類型 === '第一次報名' && <Badge tone="blue">第一次</Badge>}
+                {!base && <Badge tone={r.基地 === '夢夢' ? 'purple' : 'blue'}>{r.基地}</Badge>}
+                {highlight.has(r.報名ID) && <Badge tone="green">剛現場報名</Badge>}
+                {r.繳費狀態 === '已繳' ? <Badge tone="green">已繳 {r.繳費金額} 元</Badge> : r.應繳 > 0 && <Badge tone="amber">未繳 {r.應繳} 元</Badge>}
               </div>
               <div className="text-sm text-gray-600">
                 {r.年級}
@@ -228,8 +334,13 @@ export function CheckInBoard({ eventId, initial, registrationUrl }: { eventId: s
               {r.特殊需求 && <div className="text-sm text-red-700">⚠ {r.特殊需求}</div>}
             </div>
             <div className="flex flex-wrap gap-1.5">
+              {(r.應繳 > 0 || r.繳費狀態 === '已繳') && (
+                <Button size="sm" variant="secondary" disabled={pending} onClick={() => pay(r)}>
+                  {r.繳費狀態 === '已繳' ? '取消繳費' : '收費'}
+                </Button>
+              )}
               {r.報到狀態 === '已到' ? (
-                <Button size="sm" variant="secondary" disabled={pending} onClick={() => confirm(`取消 ${r.姓名} 的報到？`) && act(() => setStatus(eventId, r.報名ID, course, '取消報到'))}>
+                <Button size="sm" variant="secondary" disabled={pending} onClick={() => setAsking({ text: `取消 ${r.姓名} 的報到？`, ok: '取消報到', run: () => act(() => setStatus(eventId, r.報名ID, course, '取消報到')) })}>
                   取消報到
                 </Button>
               ) : (
@@ -254,7 +365,7 @@ export function CheckInBoard({ eventId, initial, registrationUrl }: { eventId: s
                       恢復
                     </Button>
                   ) : (
-                    <Button size="sm" variant="ghost" disabled={pending} onClick={() => confirm(`標記 ${r.姓名} 不會出席？`) && act(() => setStatus(eventId, r.報名ID, course, '不會出席'))}>
+                    <Button size="sm" variant="ghost" disabled={pending} onClick={() => setAsking({ text: `標記 ${r.姓名} 不會出席？`, ok: '標記不會出席', run: () => act(() => setStatus(eventId, r.報名ID, course, '不會出席')) })}>
                       不會出席
                     </Button>
                   )}

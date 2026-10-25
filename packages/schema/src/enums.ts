@@ -20,6 +20,9 @@ export const RegistrationSource = { Online: '線上', Import: '匯入', OnSite: 
 
 export const CheckInMethod = { QR: 'QR', Search: '搜尋', OnSite: '現場' } as const;
 
+/** 報名的繳費狀態 */
+export const PaymentStatus = { Paid: '已繳', Unpaid: '' } as const;
+
 export const CheckInStatus = { Arrived: '已到', Cancelled: '取消報到', Absent: '不會出席' } as const;
 
 export const AttendanceStatus = { Present: '出席', Absent: '缺席', Leave: '請假', Late: '遲到' } as const;
