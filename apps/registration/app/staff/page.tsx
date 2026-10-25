@@ -18,7 +18,7 @@ async function staffLogin(_: LoginState, formData: FormData) {
 }
 
 const SYSTEMS: { href: string; label: string; desc: string; permission: Permission; accent: string }[] = [
-  { href: '/admin', label: '系統管理後台', desc: '活動、分組、報名狀態、時間表、問卷、報表', permission: 'admin', accent: 'from-[#5969ed] via-[#4c7cf0] to-[#20d1d3]' },
+  { href: '/admin', label: '活動設定', desc: '新增活動、活動規則、課程、時間表、問卷與報表', permission: 'admin', accent: 'from-[#5969ed] via-[#4c7cf0] to-[#20d1d3]' },
   { href: '/data-tools', label: '分組分隊', desc: '年級分組、手足、自動分隊、Excel 匯出', permission: 'data-tools', accent: 'from-[#f08a67] via-[#f5a05f] to-[#f6cf69]' },
   { href: '/checkin', label: '報到', desc: '掃 QR / 搜尋報到、儀表板', permission: 'checkin', accent: 'from-[#20bfae] via-[#39c8c3] to-[#5b9ff2]' },
   { href: '/rollcall', label: '點名', desc: '小隊與課程依時段點名、出席統計', permission: 'rollcall', accent: 'from-[#ee6578] via-[#f17c88] to-[#f5b36e]' },
@@ -36,7 +36,7 @@ export default function StaffHomePage() {
     );
   }
   if (session.mustChangePassword) redirect('/password');
-  const list = SYSTEMS.filter((s) => s.href !== '/admin' && session.permissions.includes(s.permission));
+  const list = SYSTEMS.filter((s) => session.permissions.includes(s.permission));
   return (
     <Shell title="同工入口" brand="#16a34a" staffHome={null} footerNav={[{ href: '/admin', label: '系統管理後台' }]} user={session.name} logoutAction={logoutAction}>
       <div className="mx-auto max-w-2xl space-y-4">
