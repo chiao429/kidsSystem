@@ -125,6 +125,8 @@ jobs:
           S="kids-${ENV_NAME}"
           SECRETS="AUTH_SECRET=${S}-auth-secret:latest,MONGODB_URI=${S}-mongodb-uri:latest,GOOGLE_PRIVATE_KEY=${S}-google-private-key:latest"
           if [ "${{ matrix.app }}" = "admin" ]; then SECRETS="$SECRETS,SYNC_TOKEN=${S}-sync-token:latest"; fi
+          # 初始管理員密碼（帳號 admin，只在還沒有系統管理員帳號時有效）；目前只有 staging 建了這個 secret
+          if [ "${ENV_NAME}" = "stg" ]; then SECRETS="$SECRETS,ADMIN_BOOTSTRAP_PASSWORD=${S}-admin-bootstrap-password:latest"; fi
           gcloud run deploy ${{ steps.urls.outputs.service }} \
             --image ${{ steps.urls.outputs.image }} \
             --region "$REGION" \
