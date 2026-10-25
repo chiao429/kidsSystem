@@ -4,8 +4,9 @@ import { Badge, Card, Field, Input, Select, Textarea } from '@kids/ui';
 import { ActionForm, SubmitButton } from '@kids/ui/client';
 import { requireSession } from '@kids/auth/next';
 import { MemberType, gradeChoices } from '@kids/schema';
-import { resetHouseholdPin, saveHousehold, saveMember } from '@/lib/family-actions';
+import { deleteHousehold, deleteMember, resetHouseholdPin, saveHousehold, saveMember } from '@/lib/family-actions';
 import { households, members } from '@/lib/tables';
+import { DeleteButton } from '@/components/DeleteButton';
 
 export default async function FamilyPage({ params }: { params: { householdId: string } }) {
   requireSession({ permission: 'families' });
@@ -17,7 +18,20 @@ export default async function FamilyPage({ params }: { params: { householdId: st
       <Link href="/families" className="text-sm text-gray-500">
         ← 家庭與成員
       </Link>
-      <Card title={`家庭：${h.主要聯絡人}`} actions={<span className="font-mono text-xs text-gray-400">{h.家庭ID}</span>}>
+      <Card
+        title={`家庭：${h.主要聯絡人}`}
+        actions={
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-xs text-gray-400">{h.家庭ID}</span>
+            <DeleteButton
+              title={`刪除 ${h.主要聯絡人} 的家庭？`}
+              description={`會直接刪除家庭資料與 ${mm.length} 位成員（${mm.map((m) => m.姓名).join('、') || '無'}），無法復原。`}
+              action={deleteHousehold.bind(null, h.家庭ID)}
+              redirectTo="/families"
+            />
+          </div>
+        }
+      >
         <ActionForm action={saveHousehold.bind(null, h.家庭ID)} className="grid gap-3 sm:grid-cols-2">
           <Field label="主要聯絡人">
             <Input name="contact" defaultValue={h.主要聯絡人} />
@@ -51,7 +65,16 @@ export default async function FamilyPage({ params }: { params: { householdId: st
         </div>
       </Card>
       {mm.map((m) => (
-        <Card key={m.成員ID} title={m.姓名} actions={<span className="font-mono text-xs text-gray-400">{m.成員ID}</span>}>
+        <Card
+          key={m.成員ID}
+          title={m.姓名}
+          actions={
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-xs text-gray-400">{m.成員ID}</span>
+              <DeleteButton title={`刪除 ${m.姓名}？`} description="會直接刪除這位成員的資料，無法復原。" action={deleteMember.bind(null, m.成員ID)} />
+            </div>
+          }
+        >
           <ActionForm action={saveMember.bind(null, m.成員ID)} className="grid gap-3 sm:grid-cols-4">
             <Field label="姓名">
               <Input name="name" defaultValue={m.姓名} />

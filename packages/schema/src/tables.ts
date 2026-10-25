@@ -26,6 +26,8 @@ export interface TableDef<H extends string = string> {
   owner: SystemName | OwnerByColumn<H>;
   /** 其他系統可更新的欄位 */
   updatableBy?: Partial<Record<SystemName, readonly H[]>>;
+  /** owner 以外可以刪除列（不能新增）的系統 */
+  deletableBy?: readonly SystemName[];
   /** 主鍵以外的唯一鍵（同一 scope 內） */
   uniqueKeys?: readonly (readonly H[])[];
   /** 可在 Google Sheet 上修改並寫回資料庫的欄位（可含 displayColumns） */
@@ -61,6 +63,8 @@ export const HouseholdTable = defineTable({
   updatableBy: { admin: ['主要聯絡人', '電話', 'Email', '地址', '更新時間', 'PIN雜湊', 'PIN錯誤次數', 'PIN鎖定至'] },
   sheetEditable: ['主要聯絡人', '電話', 'Email', '地址'],
   mirrorExclude: ['PIN雜湊', 'PIN錯誤次數', 'PIN鎖定至'],
+  // 後台可刪除家庭（連同成員；有進行中的報名時由後台擋下）
+  deletableBy: ['admin'],
 });
 
 export const MemberTable = defineTable({
@@ -77,6 +81,8 @@ export const MemberTable = defineTable({
     admin: ['姓名', '性別', '生日', '年級', '學校', '類型', '特殊需求', '更新時間'],
     checkin: ['特殊需求', '更新時間'], // 第一次報到補資料
   },
+  // 後台可刪除孩子（有進行中的報名時由後台擋下）
+  deletableBy: ['admin'],
   sheetEditable: ['姓名', '性別', '生日', '年級', '學校', '類型', '特殊需求'],
 });
 

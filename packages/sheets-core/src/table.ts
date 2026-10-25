@@ -127,8 +127,11 @@ export class SheetTable<T extends TableDef> {
     this.assertWritable();
     const rows = await this.all({ fresh: true });
     const targets = rows.filter((r) => ids.includes(String(r[this.def.idColumn as keyof RowOf<T>])));
-    if (typeof this.def.owner === 'string') this.assertOwnerOf([{}]);
-    this.assertOwnerOf(targets);
+    // deletableBy 列出的系統可以刪除（但不能新增）
+    if (!this.def.deletableBy?.includes(this.actor)) {
+      if (typeof this.def.owner === 'string') this.assertOwnerOf([{}]);
+      this.assertOwnerOf(targets);
+    }
     await this.store.deleteByIds(ids);
     this.written();
   }
