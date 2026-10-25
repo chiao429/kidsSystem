@@ -1,4 +1,4 @@
-import { Alert } from '@kids/ui';
+import { Alert, BrandFooter } from '@kids/ui';
 import { LoginForm } from '@kids/ui/client';
 import { loginWithForm, redirectIfLoggedIn, safeNext, type LoginState } from '@kids/auth/next';
 
@@ -18,6 +18,7 @@ export default function LoginPage({ searchParams }: { searchParams: { next?: str
         </div>
       )}
       <LoginForm title="報名系統（工作人員）" action={login} next={next} />
+      <BrandFooter />
     </div>
   );
 }

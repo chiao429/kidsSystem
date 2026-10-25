@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: '點名系統',
+  title: '思麥特基地X夢夢基地｜點名系統',
   description: '人員點名、即時統計、產生報表',
 };
 

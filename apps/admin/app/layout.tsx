@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: '系統管理後台',
+  title: '思麥特基地X夢夢基地｜系統管理後台',
   description: '活動與規則設定、帳號、時間表、問卷、報表',
 };
 

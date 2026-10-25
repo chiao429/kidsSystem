@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: '資料整理',
+  title: '思麥特基地X夢夢基地｜分組分隊',
   description: '分組、家庭/手足整理、分隊、名單匯出',
 };
 

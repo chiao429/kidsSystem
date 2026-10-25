@@ -47,6 +47,8 @@ WORKDIR /srv
 RUN addgroup -S app && adduser -S app -G app
 COPY --from=build --chown=app:app /repo/apps/$APP/.next/standalone ./
 COPY --from=build --chown=app:app /repo/apps/$APP/.next/static ./apps/$APP/.next/static
+# standalone 不含 public（頁尾標誌等靜態檔），另外複製；每個 app 都要有 public 資料夾
+COPY --from=build --chown=app:app /repo/apps/$APP/public ./apps/$APP/public
 USER app
 ENV APP=$APP
 EXPOSE 8080

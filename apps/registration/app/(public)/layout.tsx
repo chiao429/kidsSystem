@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Nunito } from 'next/font/google';
+import { BrandFooter } from '@kids/ui';
 import { Sparkle } from '@/components/Rainbow';
 import './theme-rainbow.css';
 
@@ -28,7 +29,8 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
           </Link>
         </div>
       </header>
-      <main className="relative z-10 mx-auto max-w-2xl space-y-5 px-4 pb-20 pt-2 sm:pt-6">{children}</main>
+      <main className="relative z-10 mx-auto max-w-2xl space-y-5 px-4 pb-6 pt-2 sm:pt-6">{children}</main>
+      <BrandFooter className="relative z-10 pb-28" />
     </div>
   );
 }

@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: '活動報名',
+  title: '思麥特基地X夢夢基地｜活動報名',
   description: '活動報名、報名資格判斷、報名資料管理',
 };
 

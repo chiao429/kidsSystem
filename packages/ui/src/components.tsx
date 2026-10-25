@@ -227,8 +227,34 @@ export function Shell({
           </div>
         </header>
         <main className="mx-auto max-w-7xl space-y-5 px-4 py-8 sm:px-6">{children}</main>
+        <BrandFooter />
       </div>
     </div>
+  );
+}
+
+/** 頁尾品牌：思麥特基地（國小）與夢夢基地（學齡前）的標誌；圖檔放在各 app 的 public/brand */
+export function BrandFooter({ className }: { className?: string }) {
+  return (
+    <footer className={clsx('px-4 py-8 text-center text-xs text-gray-500', className)}>
+      <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={withBase('/brand/smart-kids.png')} alt="思麥特基地 Smart Kids" width={202} height={120} className="h-16 w-auto sm:h-20" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={withBase('/brand/dream-kids.png')} alt="夢夢基地 Dream Kids" width={134} height={120} className="h-16 w-auto sm:h-20" />
+      </div>
+      <p className="mt-4 font-semibold text-gray-600">夢夢基地DreamKids X 思麥特基地SmartKids</p>
+      <p className="mt-1">
+        Copyright © 2026 JO-YANG All rights reserved.
+        <span className="mx-2" aria-hidden>
+          |
+        </span>
+        {/* 條款頁在報名系統（統一入口的根路徑），跨系統用站內絕對路徑 */}
+        <a href="/privacy" className="underline hover:text-gray-700">
+          隱私權保護暨服務及聲明條款
+        </a>
+      </p>
+    </footer>
   );
 }
 
