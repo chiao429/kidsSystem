@@ -5,7 +5,7 @@ import { Alert, Badge, Button, Card, Input, Select, buttonClass } from '@kids/ui
 import { checkInMany, fetchBoard, lookupScan, setPayment, setStatus, toggleFlag } from '@/lib/actions';
 import { CheckInStatus } from '@kids/schema';
 import type { ActionResult, Board, BoardRow, ScanRow } from '@/lib/types';
-import { ConfirmDialog, MessageDialog, ResultDialog, blockedReason, needsConfirm, type ResultState } from './CheckInDialogs';
+import { ConfirmDialog, MessageDialog, ResultDialog, blockedReason, needsConfirm, type CheckInItem, type ResultState } from './CheckInDialogs';
 import { Scanner } from './Scanner';
 import { BaseTabs, useBaseFilter } from './BaseTabs';
 
@@ -61,9 +61,11 @@ export function CheckInBoard({ eventId, initial, autoCheckIn = [] }: { eventId: 
   const closeMessage = useCallback(() => setMessage(''), []);
 
   /** 幫指定的孩子報到，然後彈出結果視窗 */
-  const runCheckIn = (rows: ScanRow[], method: string, items: { 報名ID: string; 特殊需求?: string }[]) =>
+  const runCheckIn = (rows: ScanRow[], method: string, items: CheckInItem[]) =>
     startTransition(async () => {
-      const outcomes = items.length > 0 ? await checkInMany(eventId, course, method, items) : [];
+      // 確認視窗勾了收費的孩子：先記錄繳費，再報到
+      for (const i of items) if (i.繳費 != null) await setPayment(eventId, i.報名ID, true, i.繳費);
+      const outcomes = items.length > 0 ? await checkInMany(eventId, course, method, items.map(({ 繳費: _p, ...rest }) => rest)) : [];
       const chosen = new Set(items.map((i) => i.報名ID));
       setConfirming(null);
       setResult({ rows, outcomes, skipped: rows.filter((r) => !blockedReason(r) && !chosen.has(r.報名ID)).map((r) => r.報名ID) });
@@ -107,7 +109,7 @@ export function CheckInBoard({ eventId, initial, autoCheckIn = [] }: { eventId: 
       const res = await setPayment(eventId, row.報名ID, true, Number(amount));
       show(res);
       await refresh();
-      if (!res.error && row.報到狀態 !== '已到' && row.報到狀態 !== '不會出席') startCheckIn(row);
+      if (!res.error && row.報到狀態 !== '已到' && row.報到狀態 !== '不會出席') startCheckIn({ ...row, 繳費狀態: '已繳' });
     });
   };
 

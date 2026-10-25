@@ -12,10 +12,20 @@ export function blockedReason(r: ScanRow): string | null {
   return null;
 }
 
-/** 需要先確認：備取／待審核，或第一次報名（一般報到時補特殊需求） */
+/** 一般報到時還沒繳費（有材料費要收） */
+export const needsPayment = (r: ScanRow, course: string) => !course && r.應繳 > 0 && r.繳費狀態 !== '已繳';
+
+/** 需要先確認：備取／待審核、第一次報名（一般報到時補特殊需求），或還沒繳費 */
 export function needsConfirm(r: ScanRow, course: string): boolean {
   if (blockedReason(r)) return false;
-  return r.報名狀態 !== '正取' || (r.報名類型 === '第一次報名' && !r.報到狀態 && !course);
+  return r.報名狀態 !== '正取' || (r.報名類型 === '第一次報名' && !r.報到狀態 && !course) || needsPayment(r, course);
+}
+
+/** 確認視窗送出的每位孩子：可同時補特殊需求、記錄收費金額 */
+export interface CheckInItem {
+  報名ID: string;
+  特殊需求?: string;
+  繳費?: number;
 }
 
 /** 置中彈出視窗；點背景或關閉按鈕關閉 */
@@ -76,12 +86,16 @@ export function ConfirmDialog({
   course: string;
   pending: boolean;
   onCancel: () => void;
-  onConfirm: (items: { 報名ID: string; 特殊需求?: string }[]) => void;
+  onConfirm: (items: CheckInItem[]) => void;
   onSetAbsent: (報名ID: string) => Promise<ActionResult>;
 }) {
   const [checked, setChecked] = useState(() => new Set(rows.filter((r) => !blockedReason(r) && r.報名狀態 === '正取').map((r) => r.報名ID)));
   const [notes, setNotes] = useState<Record<string, string>>(() => Object.fromEntries(rows.map((r) => [r.報名ID, r.特殊需求])));
   const [markingAbsent, setMarkingAbsent] = useState<string | null>(null);
+  // 收費：每位孩子可勾選收費並調整金額（預設為應收）
+  const [paying, setPaying] = useState<Set<string>>(() => new Set());
+  const [amounts, setAmounts] = useState<Record<string, string>>(() => Object.fromEntries(rows.map((r) => [r.報名ID, String(r.應繳)])));
+  const payTotal = rows.filter((r) => checked.has(r.報名ID) && paying.has(r.報名ID)).reduce((sum, r) => sum + (Number(amounts[r.報名ID]) || 0), 0);
   const [error, setError] = useState('');
   const first = rows[0];
   const askNote = (r: ScanRow) => r.報名類型 === '第一次報名' && !r.報到狀態 && !course;
@@ -91,6 +105,7 @@ export function ConfirmDialog({
       <p className="mb-3 text-sm text-gray-600">
         {rows.some(askNote) && `第一次報名：請和家長確認電話（${first.電話}）並補充特殊需求。`}
         {rows.some((r) => r.報名狀態 !== '正取' && !blockedReason(r)) && '備取或待審核的孩子預設不勾選，確認後再勾選。'}
+        {rows.some((r) => needsPayment(r, course)) && '有材料費未繳的孩子，收費後勾選「收費」並確認金額。'}
       </p>
       {error && <p className="mb-3 rounded bg-red-50 px-2 py-1 text-sm text-red-700">{error}</p>}
       <div className="space-y-2">
@@ -116,6 +131,35 @@ export function ConfirmDialog({
                     />
                     報到
                   </label>
+                  {!course && r.繳費狀態 === '已繳' && <div className="mt-2 text-sm text-emerald-700">已繳 {r.繳費金額} 元</div>}
+                  {needsPayment(r, course) && (
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+                      <label className="flex items-center gap-2 font-medium">
+                        <input
+                          type="checkbox"
+                          className="h-5 w-5"
+                          checked={paying.has(r.報名ID)}
+                          onChange={(e) => {
+                            const next = new Set(paying);
+                            if (e.target.checked) next.add(r.報名ID);
+                            else next.delete(r.報名ID);
+                            setPaying(next);
+                          }}
+                        />
+                        收費
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        inputMode="numeric"
+                        aria-label={`${r.姓名} 收費金額`}
+                        className="w-24 rounded-xl border border-gray-300 px-2 py-1 tabular-nums"
+                        value={amounts[r.報名ID] ?? ''}
+                        onChange={(e) => setAmounts({ ...amounts, [r.報名ID]: e.target.value })}
+                      />
+                      <span className="text-gray-500">元（應收 {r.應繳} 元）</span>
+                    </div>
+                  )}
                   {askNote(r) && (
                     <Textarea
                       rows={2}
@@ -160,11 +204,15 @@ export function ConfirmDialog({
             onConfirm(
               rows
                 .filter((r) => checked.has(r.報名ID))
-                .map((r) => (askNote(r) ? { 報名ID: r.報名ID, 特殊需求: notes[r.報名ID] ?? '' } : { 報名ID: r.報名ID })),
+                .map((r) => ({
+                  報名ID: r.報名ID,
+                  ...(askNote(r) ? { 特殊需求: notes[r.報名ID] ?? '' } : {}),
+                  ...(needsPayment(r, course) && paying.has(r.報名ID) ? { 繳費: Number(amounts[r.報名ID]) || 0 } : {}),
+                })),
             )
           }
         >
-          {pending ? '報到中…' : `確認報到（${checked.size} 位）`}
+          {pending ? '報到中…' : `確認報到（${checked.size} 位）${payTotal > 0 ? `・收費 ${payTotal} 元` : ''}`}
         </Button>
         <Button variant="ghost" onClick={onCancel}>
           取消
