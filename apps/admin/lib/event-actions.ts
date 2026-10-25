@@ -3,11 +3,12 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { requireSession } from '@kids/auth/next';
-import { EventStatus, EventVersion, GROUP_TYPES, newId, parseCoursePanels, type EventRules, type GroupType } from '@kids/schema';
+import { EventStatus, EventVersion, GROUP_TYPES, parseCoursePanels, type EventRules, type GroupType } from '@kids/schema';
 import type { FormResult } from '@kids/ui/client';
 import { sanitizeRichText } from '@kids/ui/rich-text';
 import { dataBackend, extractSheetIdFromUrl } from '@kids/sheets-core';
-import { ensureEventTables, events, groups, registrations, schedules, surveys } from './tables';
+import { ensureEventTables, events, registrations } from './tables';
+import { COPIED_EVENT_COLUMNS, loadEventContent, parseTemplate, resolveSignature, writeEventContent, type EventContent } from './event-template';
 import { getEvent, isSheetRequired } from './events';
 import { writeLog } from './log';
 import { OTHER, dateLabel, formatDated } from './event-info';
@@ -54,26 +55,23 @@ function sheetOrDefault(eventId: string, sheet: string) {
   return process.env.SHEETS_LOCAL_DIR && dataBackend() !== 'mongo' ? `event-${eventId}` : '';
 }
 
-/** 複製活動時沿用的活動欄位（報名頁內容）；名稱、日期、報名時間與規則以表單為準 */
-const COPIED_EVENT_COLUMNS = ['活動時間', '地點', '報到時間', '繳費時間', '活動說明', '適用對象', '報名提醒', '備註', '簽名檔', '分組說明'] as const;
-
-/** 複製課程、小隊、時間表與問卷到新活動（換新 ID；時間表的分組ID 對應到新的分組） */
-async function copyEventContent(fromId: string, toId: string) {
-  const [srcGroups, srcSchedules, srcSurveys] = await Promise.all([groups(fromId).all(), schedules(fromId).all(), surveys(fromId).all()]);
-  const groupIdMap = new Map(srcGroups.map((g) => [g.分組ID, newId('分組ID')]));
-  if (srcGroups.length) await groups(toId).append(srcGroups.map((g) => ({ ...g, 分組ID: groupIdMap.get(g.分組ID)! })));
-  // 分組已不存在的時段改為不限分組，避免指向舊活動的分組
-  if (srcSchedules.length)
-    await schedules(toId).append(srcSchedules.map((s) => ({ ...s, 時段ID: newId('時段ID'), 分組ID: s.分組ID ? groupIdMap.get(s.分組ID) ?? '' : '' })));
-  if (srcSurveys.length) await surveys(toId).append(srcSurveys.map((s) => ({ ...s, 問卷ID: newId('問卷ID') })));
-}
-
 export async function createEvent(_: FormResult, formData: FormData): Promise<FormResult> {
   const session = requireSession({ permission: 'admin', allEvents: true });
+  // 來源：複製既有活動（copyFrom），或上傳的活動範本檔（template）
   const copyFromId = String(formData.get('copyFrom') ?? '').trim();
   const source = copyFromId ? await getEvent(copyFromId).catch(() => undefined) : undefined;
   if (copyFromId && !source) return { error: '找不到要複製的活動' };
-  const form = { ...readEventForm(formData, source && { ...source.rules, statusBeforeArchive: undefined }), ...(source ? Object.fromEntries(COPIED_EVENT_COLUMNS.map((c) => [c, source[c] ?? ''])) : {}) };
+  const templateText = String(formData.get('template') ?? '').trim();
+  const template = templateText ? parseTemplate(templateText) : undefined;
+  if (typeof template === 'string') return { error: template };
+  const baseRules = source ? { ...source.rules, statusBeforeArchive: undefined } : template?.rules;
+  const copied: Record<string, string> = source
+    ? Object.fromEntries(COPIED_EVENT_COLUMNS.map((c) => [c, source[c] ?? '']))
+    : template
+      ? Object.fromEntries(COPIED_EVENT_COLUMNS.map((c) => [c, template.event[c] ?? '']))
+      : {};
+  if (template) copied.簽名檔 = await resolveSignature(copied.簽名檔 ?? '');
+  const form = { ...readEventForm(formData, baseRules), ...copied };
   if (!/^[A-Za-z0-9_-]+$/.test(form.活動ID)) return { error: '活動ID 只能使用英數字、- 與 _' };
   if (!form.名稱 || !form.開始日期) return { error: '請填寫活動名稱與開始日期' };
   if (!form.活動試算表 && isSheetRequired()) return { error: '請在「進階設定」填寫活動試算表連結' };
@@ -86,8 +84,15 @@ export async function createEvent(_: FormResult, formData: FormData): Promise<Fo
     return { error: `無法存取活動試算表，請確認已共用給 service account：${e instanceof Error ? e.message : e}` };
   }
   await events().append([row]);
-  if (source) await copyEventContent(source.活動ID, row.活動ID);
-  await writeLog(row.活動ID, session, source ? '複製活動' : '建立活動', row.活動ID, source ? `來源：${source.活動ID}` : undefined);
+  const content: EventContent | undefined = source ? await loadEventContent(source.活動ID) : template;
+  if (content) await writeEventContent(row.活動ID, content);
+  await writeLog(
+    row.活動ID,
+    session,
+    source ? '複製活動' : template ? '從範本建立活動' : '建立活動',
+    row.活動ID,
+    source ? `來源：${source.活動ID}` : template ? `範本：${template.event.名稱 ?? ''}` : undefined,
+  );
   redirect(`/events/${row.活動ID}`);
 }
 

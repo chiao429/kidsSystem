@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Alert, Badge, Card, Empty, Table, buttonClass } from '@kids/ui';
+import { Alert, Badge, Card, Empty, Table, buttonClass, withBase } from '@kids/ui';
 import { SubmitButton } from '@kids/ui/client';
 import { requireSession } from '@kids/auth/next';
 import { EventStatus, isArchivedEvent } from '@kids/schema';
@@ -128,6 +128,10 @@ export default async function HomePage({ searchParams }: { searchParams: { archi
                         複製
                       </Link>
                     )}
+                    {/* 下載活動範本檔（JSON），在「新增活動」可匯入；原生 <a> 要加 basePath */}
+                    <a href={withBase(`/events/${e.活動ID}/template`)} download className={buttonClass('ghost', 'sm')}>
+                      匯出範本
+                    </a>
                     {canManage && (
                       <ConfirmById id={e.活動ID} label="刪除" action={archiveEvent.bind(null, e.活動ID)} danger="刪除後會移到「已封存」，報名資料都會保留，可以再還原。" />
                     )}

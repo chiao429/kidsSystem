@@ -16,6 +16,8 @@ export function EventForm({
   rules = {},
   defaultId,
   copyFrom,
+  copyLabel = '複製',
+  template,
   sheetRequired,
 }: {
   action: (state: FormResult, formData: FormData) => Promise<FormResult>;
@@ -25,6 +27,10 @@ export function EventForm({
   defaultId?: string;
   /** 複製活動：以這場活動的設定為預設值（活動ID、試算表另填，狀態回到草稿） */
   copyFrom?: EventRow;
+  /** 名稱後面加的標記：複製活動為「複製」，從範本建立為「範本」 */
+  copyLabel?: string;
+  /** 從範本建立：範本檔內容（JSON），送出時一併建立課程、時間表與問卷 */
+  template?: string;
   /** 純 Google Sheets 模式時活動資料就在試算表裡，必須填寫 */
   sheetRequired: boolean;
 }) {
@@ -34,11 +40,12 @@ export function EventForm({
   const groupTypes = src ? (rules.groupTypes ?? (rules.grouping === 'course' ? ['課程'] : ['小隊'])) : ['課程'];
   return (
     <ActionForm action={action} className="space-y-6">
-      {copyFrom && <input type="hidden" name="copyFrom" value={copyFrom.活動ID} />}
+      {copyFrom && !template && <input type="hidden" name="copyFrom" value={copyFrom.活動ID} />}
+      {template && <input type="hidden" name="template" value={template} />}
       <section className="grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <Field label="活動名稱" required>
-            <Input name="name" defaultValue={copyFrom ? `${copyFrom.名稱}（複製）` : event?.名稱} required />
+            <Input name="name" defaultValue={copyFrom ? (template ? copyFrom.名稱 : `${copyFrom.名稱}（${copyLabel}）`) : event?.名稱} required />
           </Field>
         </div>
         <Field label="開始日期" required>

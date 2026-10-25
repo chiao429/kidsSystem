@@ -1,6 +1,7 @@
 import { Card } from '@kids/ui';
 import { requireSession } from '@kids/auth/next';
 import { EventForm } from '@/components/EventForm';
+import { NewEventFromTemplate } from '@/components/NewEventFromTemplate';
 import { createEvent } from '@/lib/event-actions';
 import { getEvent, isSheetRequired } from '@/lib/events';
 import { events } from '@/lib/tables';
@@ -26,7 +27,11 @@ export default async function NewEventPage({ searchParams }: { searchParams: { f
           報名、報到、點名與問卷回覆不會複製。請確認日期與報名時間後儲存。
         </p>
       )}
-      <EventForm action={createEvent} defaultId={await defaultEventId()} copyFrom={source} rules={source?.rules} sheetRequired={isSheetRequired()} />
+      {source ? (
+        <EventForm action={createEvent} defaultId={await defaultEventId()} copyFrom={source} rules={source?.rules} sheetRequired={isSheetRequired()} />
+      ) : (
+        <NewEventFromTemplate action={createEvent} defaultId={await defaultEventId()} sheetRequired={isSheetRequired()} />
+      )}
     </Card>
   );
 }
