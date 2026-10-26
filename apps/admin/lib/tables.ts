@@ -1,5 +1,5 @@
 import 'server-only';
-import { SheetTable, dataBackend, ensureSheetTabs, getMasterSheetId } from '@kids/sheets-core';
+import { SheetTable, dataBackend, ensureSheetTabs, getMasterSheetId, isSheetSyncPaused } from '@kids/sheets-core';
 import {
   MASTER_TABLES, EVENT_TABLES,
   HouseholdTable, MemberTable, AccountTable, RoleTable, EventTable,
@@ -30,7 +30,7 @@ export const logs = (eventId: string) => new SheetTable(eventId, LogTable, A);
 /** mongo：建立索引，並在主資料試算表建立分頁（鏡像目的地）；sheets：建立分頁 */
 export async function ensureMasterTables() {
   for (const def of MASTER_TABLES) await new SheetTable('master', def, A).ensure();
-  if (dataBackend() === 'mongo') {
+  if (dataBackend() === 'mongo' && !(await isSheetSyncPaused())) {
     const id = await getMasterSheetId();
     if (id) await ensureSheetTabs(id, MASTER_TABLES);
   }
@@ -39,6 +39,7 @@ export async function ensureMasterTables() {
 /** 先直接在活動試算表建立分頁（同時確認 service account 權限），mongo 模式再建立索引 */
 export async function ensureEventTables(eventId: string, spreadsheetId: string) {
   // 沒有活動試算表（Mongo 模式不建立鏡像）時只建立資料庫的集合
-  if (spreadsheetId) await ensureSheetTabs(spreadsheetId, EVENT_TABLES);
+  // Mongo 模式暫停 Google Sheet 同步時不碰活動試算表
+  if (spreadsheetId && !(dataBackend() === 'mongo' && (await isSheetSyncPaused()))) await ensureSheetTabs(spreadsheetId, EVENT_TABLES);
   if (dataBackend() === 'mongo') for (const def of EVENT_TABLES) await new SheetTable(eventId, def, A).ensure();
 }

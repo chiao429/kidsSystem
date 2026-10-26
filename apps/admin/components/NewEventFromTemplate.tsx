@@ -14,10 +14,12 @@ export function NewEventFromTemplate({
   action,
   defaultId,
   sheetRequired,
+  showSheet,
 }: {
   action: (state: FormResult, formData: FormData) => Promise<FormResult>;
   defaultId: string;
   sheetRequired: boolean;
+  showSheet?: boolean;
 }) {
   const [template, setTemplate] = useState<{ text: string; event: EventRow; rules: EventRules; counts: string; file: string } | null>(null);
   const [error, setError] = useState('');
@@ -73,6 +75,7 @@ export function NewEventFromTemplate({
         action={action}
         defaultId={defaultId}
         sheetRequired={sheetRequired}
+        showSheet={showSheet}
         copyFrom={template?.event}
         copyLabel="範本"
         rules={template?.rules}

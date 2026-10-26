@@ -4,6 +4,7 @@ import { EventForm } from '@/components/EventForm';
 import { NewEventFromTemplate } from '@/components/NewEventFromTemplate';
 import { createEvent } from '@/lib/event-actions';
 import { getEvent, isSheetRequired } from '@/lib/events';
+import { sheetFeaturesVisible } from '@kids/sheets-core';
 import { events } from '@/lib/tables';
 
 /** kids＋台北時間今天日期（例如 kids10-09）；當天已有同名活動時加上 -2、-3… */
@@ -18,6 +19,7 @@ async function defaultEventId(): Promise<string> {
 
 export default async function NewEventPage({ searchParams }: { searchParams: { from?: string } }) {
   requireSession({ permission: 'admin', allEvents: true });
+  const showSheet = await sheetFeaturesVisible();
   const source = searchParams.from ? await getEvent(searchParams.from).catch(() => undefined) : undefined;
   return (
     <Card title={source ? `複製活動：${source.名稱}` : '新增活動'}>
@@ -28,9 +30,9 @@ export default async function NewEventPage({ searchParams }: { searchParams: { f
         </p>
       )}
       {source ? (
-        <EventForm action={createEvent} defaultId={await defaultEventId()} copyFrom={source} rules={source?.rules} sheetRequired={isSheetRequired()} />
+        <EventForm action={createEvent} defaultId={await defaultEventId()} copyFrom={source} rules={source?.rules} sheetRequired={isSheetRequired()} showSheet={showSheet} />
       ) : (
-        <NewEventFromTemplate action={createEvent} defaultId={await defaultEventId()} sheetRequired={isSheetRequired()} />
+        <NewEventFromTemplate action={createEvent} defaultId={await defaultEventId()} sheetRequired={isSheetRequired()} showSheet={showSheet} />
       )}
     </Card>
   );

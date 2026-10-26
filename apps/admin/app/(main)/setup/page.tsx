@@ -3,7 +3,7 @@ import { Alert, Badge, Card, Empty, Field, Input, Table } from '@kids/ui';
 import { ActionForm, SubmitButton, type FormResult } from '@kids/ui/client';
 import { requireSession } from '@kids/auth/next';
 import { MASTER_TABLES } from '@kids/schema';
-import { dataBackend, ensureSheetTabs, extractSheetIdFromUrl, masterSheetSetting, setMasterSheetId } from '@kids/sheets-core';
+import { dataBackend, ensureSheetTabs, extractSheetIdFromUrl, isSheetSyncPaused, masterSheetSetting, setMasterSheetId, setSheetSyncPaused, sheetFeaturesVisible } from '@kids/sheets-core';
 import { pushDirty, resetSync, resolveConflict, syncStatus } from '@kids/sheets-core/mirror';
 import { ensureMasterTables } from '@/lib/tables';
 
@@ -125,6 +125,39 @@ async function unbindMasterSheet() {
   revalidatePath('/setup');
 }
 
+async function toggleSyncPause(paused: boolean) {
+  'use server';
+  const session = requireSession({ permission: 'setup' });
+  await setSheetSyncPaused(paused, session.name);
+  revalidatePath('/setup');
+}
+
+/** Google Sheet 同步的總開關 */
+async function SyncPauseCard() {
+  const paused = await isSheetSyncPaused();
+  return (
+    <Card
+      title="Google Sheet 同步"
+      actions={
+        <form action={toggleSyncPause.bind(null, !paused)}>
+          <SubmitButton size="sm" variant={paused ? 'primary' : 'secondary'}>
+            {paused ? '恢復同步' : '暫停同步'}
+          </SubmitButton>
+        </form>
+      }
+    >
+      <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700">
+        {paused ? <Badge tone="amber">已暫停</Badge> : <Badge tone="green">同步中</Badge>}
+        <span>
+          {paused
+            ? '目前不會寫入任何 Google 試算表，也不接受試算表上的修改；系統資料照常使用，變更會累積，恢復後一次同步。'
+            : '系統資料每 5 分鐘同步到 Google 試算表；需要暫時取消連結時可以按「暫停同步」。'}
+        </span>
+      </div>
+    </Card>
+  );
+}
+
 async function MasterSheetCard() {
   const current = await masterSheetSetting();
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || '未設定';
@@ -182,14 +215,19 @@ async function initMaster() {
 export default async function SetupPage() {
   requireSession({ permission: 'setup' });
   const configured = !!(await masterSheetSetting()).id;
+  // Google Sheet 同步暫停時，只留下暫停開關與資料表初始化
+  const showSheet = await sheetFeaturesVisible();
   return (
     <>
-    {dataBackend() === 'mongo' && <MasterSheetCard />}
-    {dataBackend() === 'mongo' && <SyncCard />}
-    <Card title="初始化主資料試算表">
+    {dataBackend() === 'mongo' && <SyncPauseCard />}
+    {dataBackend() === 'mongo' && showSheet && <MasterSheetCard />}
+    {dataBackend() === 'mongo' && showSheet && <SyncCard />}
+    <Card title={showSheet ? '初始化主資料試算表' : '初始化主資料'}>
       <div className="space-y-3 text-sm text-gray-700">
         <p>
-          會在主資料試算表中建立以下分頁與標題列（已存在的分頁只補上缺少的欄位，不會動到資料）：
+          {showSheet
+            ? '會在主資料試算表中建立以下分頁與標題列（已存在的分頁只補上缺少的欄位，不會動到資料）：'
+            : '建立或檢查以下主資料表與欄位（已存在的只補上缺少的欄位，不會動到資料）：'}
         </p>
         <ul className="list-inside list-disc">
           {MASTER_TABLES.map((t) => (
@@ -198,10 +236,10 @@ export default async function SetupPage() {
             </li>
           ))}
         </ul>
-        <p>請先將試算表「共用」給 service account（{process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || '未設定'}），權限為編輯者。</p>
-        {!configured && <Alert>尚未設定主資料試算表{dataBackend() === 'mongo' ? '，請在上方綁定' : '（GOOGLE_MASTER_SHEET_ID）'}</Alert>}
+        {showSheet && <p>請先將試算表「共用」給 service account（{process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || '未設定'}），權限為編輯者。</p>}
+        {showSheet && !configured && <Alert>尚未設定主資料試算表{dataBackend() === 'mongo' ? '，請在上方綁定' : '（GOOGLE_MASTER_SHEET_ID）'}</Alert>}
         <form action={initMaster}>
-          <SubmitButton disabled={!configured}>建立 / 檢查分頁</SubmitButton>
+          <SubmitButton disabled={showSheet && !configured}>{showSheet ? '建立 / 檢查分頁' : '建立 / 檢查資料表'}</SubmitButton>
         </form>
       </div>
     </Card>

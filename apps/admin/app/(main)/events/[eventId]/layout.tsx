@@ -2,11 +2,13 @@ import { requireSession } from '@kids/auth/next';
 import { GroupType, hasGroupType, isArchivedEvent } from '@kids/schema';
 import { Alert, Badge, buttonClass, parentUrl } from '@kids/ui';
 import { getEvent } from '@/lib/events';
+import { sheetFeaturesVisible } from '@kids/sheets-core';
 import { EventTabs } from '@/components/EventTabs';
 
 export default async function EventLayout({ children, params }: { children: React.ReactNode; params: { eventId: string } }) {
   requireSession({ permission: 'admin', eventId: params.eventId });
   const event = await getEvent(params.eventId);
+  const showSheet = await sheetFeaturesVisible();
   const base = `/events/${params.eventId}`;
   const tabs = [
     ['', '設定'],
@@ -41,7 +43,7 @@ export default async function EventLayout({ children, params }: { children: Reac
             </a>
           )}
         </div>
-        {event.sheetId && event.活動試算表.startsWith('http') && (
+        {showSheet && event.sheetId && event.活動試算表.startsWith('http') && (
           <a href={event.活動試算表} target="_blank" rel="noreferrer" className="text-sm text-[#315bc7] underline">
             開啟活動試算表
           </a>

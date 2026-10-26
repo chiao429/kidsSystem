@@ -19,6 +19,7 @@ export function EventForm({
   copyLabel = '複製',
   template,
   sheetRequired,
+  showSheet = true,
 }: {
   action: (state: FormResult, formData: FormData) => Promise<FormResult>;
   event?: EventRow;
@@ -33,6 +34,8 @@ export function EventForm({
   template?: string;
   /** 純 Google Sheets 模式時活動資料就在試算表裡，必須填寫 */
   sheetRequired: boolean;
+  /** 顯示「活動試算表連結」（Google Sheet 同步暫停時隱藏，原本的值照樣送出不會被清掉） */
+  showSheet?: boolean;
 }) {
   // 複製時表單預設值取自來源活動
   const src = event ?? copyFrom;
@@ -122,6 +125,7 @@ export function EventForm({
               ))}
             </div>
           </Field>
+          {showSheet || sheetRequired ? (
           <div className="sm:col-span-2">
             <Field
               label="活動試算表連結"
@@ -131,6 +135,9 @@ export function EventForm({
               <Input name="sheet" defaultValue={event?.活動試算表} required={sheetRequired} />
             </Field>
           </div>
+          ) : (
+            <input type="hidden" name="sheet" value={event?.活動試算表 ?? ''} />
+          )}
           <label className="flex items-center gap-2 text-sm sm:col-span-2">
             <input type="checkbox" name="existingOnly" defaultChecked={rules.existingOnly ?? false} /> 只開放已有資料的家庭報名
           </label>

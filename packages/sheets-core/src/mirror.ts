@@ -4,7 +4,7 @@ import {
 } from '@kids/schema';
 import { getBackend } from './backend';
 import { extractSheetIdFromUrl } from './client';
-import { getMasterSheetId } from './settings';
+import { getMasterSheetId, isSheetSyncPaused } from './settings';
 import { collectionOf, docId, getDb, type StoredDoc } from './mongo';
 import { normalizeRow } from './store';
 import { SheetTable } from './table';
@@ -23,7 +23,7 @@ const DEPENDENTS_OF_GROUPS = ['groupMembers', 'checkins', 'attendance', 'schedul
 type Row = Record<string, string>;
 
 export interface PushResult {
-  skipped?: 'locked';
+  skipped?: 'locked' | 'paused';
   tables: { table: string; scope: string; rows?: number; error?: string }[];
   remaining: number;
 }
@@ -178,6 +178,7 @@ async function recordState(def: TableDef, scope: string, ok: boolean, error = ''
 
 /** 推送所有待同步的（表, scope）；受批次與時間上限限制，剩下的留到下一輪 */
 export async function pushDirty({ maxTables = 20, timeBudgetMs = 50_000 } = {}): Promise<PushResult> {
+  if (await isSheetSyncPaused()) return { skipped: 'paused', tables: [], remaining: 0 };
   if (!(await acquireLock())) return { skipped: 'locked', tables: [], remaining: 0 };
   const started = Date.now();
   const result: PushResult = { tables: [], remaining: 0 };
@@ -311,6 +312,7 @@ async function scopeOfSheet(spreadsheetId: string): Promise<string | null> {
 
 /** 從 Sheet 寫回一格。資料庫目前值與 Sheet 修改前的值不同時視為衝突，不寫入（下一輪推送會把 Sheet 改回來） */
 export async function applySheetEdit(edit: SheetEdit): Promise<SheetEditResult> {
+  if (await isSheetSyncPaused()) return { status: 'rejected', reason: 'Google Sheet 同步已暫停，修改不會寫回系統' };
   const def = defByTab.get(edit.tab);
   if (!def) return { status: 'rejected', reason: `不支援的分頁「${edit.tab}」` };
   if (!(def.sheetEditable ?? []).includes(edit.header)) return { status: 'rejected', reason: `「${edit.header}」不可在 Sheet 上修改` };
@@ -360,6 +362,8 @@ export async function applySheetEdit(edit: SheetEdit): Promise<SheetEditResult> 
 
 /** Apps Script 需要安裝觸發的試算表 */
 export async function syncTargets(): Promise<{ master: string; events: { eventId: string; spreadsheetId: string }[] }> {
+  // 暫停同步時不回傳任何試算表，Apps Script 就不會處理
+  if (await isSheetSyncPaused()) return { master: '', events: [] };
   const events = await (await collectionOf(EventTable)).find({ _scope: 'master', _deleted: false, 狀態: { $nin: ['已結束', '已封存'] } }).toArray();
   return {
     master: await getMasterSheetId(),
