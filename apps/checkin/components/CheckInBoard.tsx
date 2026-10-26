@@ -245,6 +245,16 @@ export function CheckInBoard({ eventId, initial, autoCheckIn = [] }: { eventId: 
             }
             return res;
           }}
+          onRestore={async (報名ID) => {
+            const res = await setStatus(eventId, 報名ID, course, '');
+            if (!res.error) {
+              setConfirming((current) =>
+                current ? { ...current, rows: current.rows.map((r) => (r.報名ID === 報名ID ? { ...r, 報到狀態: '' } : r)) } : current,
+              );
+              await refresh();
+            }
+            return res;
+          }}
           onConfirm={(items) => runCheckIn(confirming.rows, confirming.method, items)}
         />
       )}

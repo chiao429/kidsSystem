@@ -81,6 +81,7 @@ export function ConfirmDialog({
   onCancel,
   onConfirm,
   onSetAbsent,
+  onRestore,
 }: {
   rows: ScanRow[];
   course: string;
@@ -88,6 +89,8 @@ export function ConfirmDialog({
   onCancel: () => void;
   onConfirm: (items: CheckInItem[]) => void;
   onSetAbsent: (報名ID: string) => Promise<ActionResult>;
+  /** 取消「不會出席」，恢復成可以報到 */
+  onRestore: (報名ID: string) => Promise<ActionResult>;
 }) {
   const [checked, setChecked] = useState(() => new Set(rows.filter((r) => !blockedReason(r) && r.報名狀態 === '正取').map((r) => r.報名ID)));
   const [notes, setNotes] = useState<Record<string, string>>(() => Object.fromEntries(rows.map((r) => [r.報名ID, r.特殊需求])));
@@ -114,7 +117,27 @@ export function ConfirmDialog({
           return (
             <ChildInfo key={r.報名ID} r={r}>
               {blocked ? (
-                <div className="mt-2 text-sm text-gray-500">{blocked}</div>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-gray-500">
+                  {r.報到狀態 === '不會出席' ? '已標記「不會出席」' : blocked}
+                  {r.報到狀態 === '不會出席' && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={pending || markingAbsent !== null}
+                      onClick={async () => {
+                        setError('');
+                        setMarkingAbsent(r.報名ID);
+                        const res = await onRestore(r.報名ID);
+                        setMarkingAbsent(null);
+                        if (res.error) setError(res.error);
+                        // 恢復後正取的孩子重新勾選報到
+                        else if (r.報名狀態 === '正取') setChecked((current) => new Set(current).add(r.報名ID));
+                      }}
+                    >
+                      {markingAbsent === r.報名ID ? '恢復中…' : '恢復'}
+                    </Button>
+                  )}
+                </div>
               ) : (
                 <>
                   <label className="mt-2 flex items-center gap-2 font-medium">
