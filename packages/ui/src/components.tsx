@@ -133,6 +133,9 @@ export const basePath = () => process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 /** 原生 <a>、fetch、window.location 不會自動加 basePath，用這個補上；<Link>／redirect 不需要 */
 export const withBase = (path: string) => `${basePath()}${path}`;
 
+/** 家長端（apps/parents）的網址：家長頁獨立部署，其他系統連過去要用完整網址；家長端自己用相對路徑 */
+export const parentUrl = (path: string) => `${(process.env.NEXT_PUBLIC_PARENT_URL ?? '').replace(/\/+$/, '')}${path}`;
+
 /** 系統共用外框；brand 為該系統主色（CSS 色碼） */
 export function Shell({
   title,
@@ -247,8 +250,8 @@ export function BrandFooter({ className }: { className?: string }) {
         <span className="mx-2" aria-hidden>
           |
         </span>
-        {/* 條款頁在報名系統（統一入口的根路徑），跨系統用站內絕對路徑 */}
-        <a href="/privacy" className="underline hover:text-gray-700">
+        {/* 條款頁在家長端 */}
+        <a href={parentUrl('/privacy')} className="underline hover:text-gray-700">
           隱私權保護暨服務及聲明條款
         </a>
       </p>

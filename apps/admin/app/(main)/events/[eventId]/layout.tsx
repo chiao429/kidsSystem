@@ -1,6 +1,6 @@
 import { requireSession } from '@kids/auth/next';
 import { GroupType, hasGroupType, isArchivedEvent } from '@kids/schema';
-import { Alert, Badge, buttonClass } from '@kids/ui';
+import { Alert, Badge, buttonClass, parentUrl } from '@kids/ui';
 import { getEvent } from '@/lib/events';
 import { EventTabs } from '@/components/EventTabs';
 
@@ -34,9 +34,9 @@ export default async function EventLayout({ children, params }: { children: Reac
               {isArchivedEvent(event) && <Badge tone="gray">已封存</Badge>}
             </h1>
           </div>
-          {/* 家長端活動頁（報名系統，統一入口的根路徑），開新分頁；草稿或截止時看得到內容但沒有報名按鈕 */}
+          {/* 家長端活動頁（apps/parents），開新分頁；草稿或截止時看得到內容但沒有報名按鈕 */}
           {!isArchivedEvent(event) && (
-            <a href={`/e/${event.活動ID}`} target="_blank" rel="noreferrer" className={buttonClass('secondary', 'sm')}>
+            <a href={parentUrl(`/e/${event.活動ID}`)} target="_blank" rel="noreferrer" className={buttonClass('secondary', 'sm')}>
               預覽家長頁 ↗
             </a>
           )}

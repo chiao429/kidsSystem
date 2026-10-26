@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@kids/auth": "*",
+    "@kids/registration-core": "*",
     "@kids/schema": "*",
     "@kids/sheets-core": "*",
     "@kids/ui": "*",

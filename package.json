@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "dev:registration": "npm run dev -w @kids/registration",
+    "dev:parents": "npm run dev -w @kids/parents",
     "dev:checkin": "npm run dev -w @kids/checkin",
     "dev:rollcall": "npm run dev -w @kids/rollcall",
     "dev:admin": "npm run dev -w @kids/admin",

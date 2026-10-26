@@ -49,7 +49,7 @@ jobs:
           else echo "environment=staging" >> "$GITHUB_OUTPUT"; fi
       - id: apps
         run: |
-          ALL='["admin","checkin","data-tools","registration","rollcall","smallgroups"]'
+          ALL='["admin","checkin","data-tools","parents","registration","rollcall","smallgroups"]'
           BEFORE="${{ github.event.before }}"
           if [ "${{ github.event_name }}" != "push" ] || [[ "${{ github.ref }}" == refs/tags/* ]] || [ -z "$BEFORE" ] || ! git cat-file -e "$BEFORE" 2>/dev/null; then
             echo "apps=$ALL" >> "$GITHUB_OUTPUT"; exit 0
@@ -102,6 +102,7 @@ jobs:
             echo "rollcall=$(url rollcall)"
             echo "datatools=$(url data-tools)"
             echo "smallgroups=$(url smallgroups)"
+            echo "parents=$(url parents)"
             echo "image=${REGION}-docker.pkg.dev/${PROJECT_ID}/kids/${{ matrix.app }}:${{ github.sha }}-${ENV_NAME}"
           } >> "$GITHUB_OUTPUT"
 
@@ -113,6 +114,7 @@ jobs:
             --build-arg NEXT_PUBLIC_SITE_URL=${{ steps.urls.outputs.entry }} \
             --build-arg NEXT_PUBLIC_REGISTRATION_URL=${{ steps.urls.outputs.entry }} \
             --build-arg NEXT_PUBLIC_CHECKIN_URL=${{ steps.urls.outputs.entry }}/checkin \
+            --build-arg NEXT_PUBLIC_PARENT_URL=${{ steps.urls.outputs.parents }} \
             --build-arg SITE_HOST=${{ steps.urls.outputs.host }} \
             --build-arg ADMIN_ORIGIN=${{ steps.urls.outputs.admin }} \
             --build-arg CHECKIN_ORIGIN=${{ steps.urls.outputs.checkin }} \

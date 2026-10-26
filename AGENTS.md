@@ -1,12 +1,13 @@
 # AGENTS.md — 接手前先讀這頁
 
-兒童活動管理平台。npm workspaces monorepo，6 個 Next.js 14（App Router、Server Actions、Tailwind）app ＋ 4 個共用 package。介面與註解一律繁體中文。
+兒童活動管理平台。npm workspaces monorepo，7 個 Next.js 14（App Router、Server Actions、Tailwind）app ＋ 5 個共用 package。介面與註解一律繁體中文。
 
 ## 結構
 
 | 路徑 | 埠 | 做什麼 |
 |---|---|---|
-| `apps/registration` | 3001 | 家長報名、報到 QR、問卷填寫、舊資料匯入。**root zone**：用 rewrites 轉送其他 5 個 app |
+| `apps/parents` | 3007 | **家長端**（獨立部署、自己的網址）：活動頁、報名、家長登入、報到 QR、問卷、隱私權條款 |
+| `apps/registration` | 3001 | **同工端統一入口**（root zone，用 rewrites 轉送其他 app）：同工登入、同工入口、現場報名（/e/:id/onsite）、舊資料匯入；舊的家長頁網址轉到家長端 |
 | `apps/checkin` | 3002 | 活動當天報到（QR 掃描 / 搜尋）、儀表板 |
 | `apps/rollcall` | 3003 | 小隊／課程依時段點名、統計 |
 | `apps/admin` | 3004 | 活動、帳號、角色、分組、時間表、問卷、報表、Sheet 同步 |
@@ -16,6 +17,7 @@
 | `packages/sheets-core` | | 資料存取 `SheetTable`（MongoDB / Google Sheets / 本機 JSON） |
 | `packages/auth` | | 登入、cookie `kids_session`、`requireSession` |
 | `packages/ui` | | 純外觀元件、`withBase()` |
+| `packages/registration-core` | | 家長端與同工端共用的報名程式：資料表、報名送出、PIN 驗證、報名表元件、家長端樣式 |
 
 每個 app 長一樣：`app/`（頁面）、`components/`、`lib/tables.ts`（本 app 用到的表）、`lib/actions.ts`（Server Actions）、`middleware.ts`。
 
@@ -27,7 +29,7 @@
 4. 欄位一律用**中文標題名稱**存取、依 **ID** 更新；活動資料以 `eventId` 分範圍。
 5. **表單 `name` 屬性必須是英文**（Next 14 Server Action 會把中文 name 解壞）。
 6. 每個 Server Action / Route Handler / 頁面自己呼叫 `requireSession({ permission, eventId })` 檢查權限。
-7. 連結：同 app 用 `<Link>`/`redirect()`；原生 `<a>` 或匯出網址用 `withBase()`；跨 app 用 `<a href="/rollcall/...">`。
+7. 連結：同 app 用 `<Link>`/`redirect()`；原生 `<a>` 或匯出網址用 `withBase()`；跨 app 用 `<a href="/rollcall/...">`；連到家長端用 `parentUrl()`。
 
 ## 資料存取範例
 
@@ -60,7 +62,7 @@ await checkIns(eventId).upsertByKey(['報名ID', '分組ID'], row); // 防重複
 
 ```bash
 npm install
-npm run dev                          # 六個一起，從 http://localhost:3001 進入
+npm run dev                          # 七個一起（家長端 http://localhost:3007），從 http://localhost:3001 進入
 npm run dev -- --only admin,checkin  # 只開部分
 ```
 

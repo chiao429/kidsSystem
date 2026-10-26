@@ -1,4 +1,4 @@
-# 六個 app 共用的映像檔：docker build --build-arg APP=checkin .
+# 七個 app 共用的映像檔：docker build --build-arg APP=checkin .
 # NEXT_PUBLIC_* 會在 build 時寫進程式，所以由 build-arg 傳入；其餘設定在 Cloud Run 執行時注入。
 FROM node:20-alpine AS deps
 WORKDIR /repo
@@ -7,12 +7,14 @@ COPY packages/schema/package.json packages/schema/
 COPY packages/sheets-core/package.json packages/sheets-core/
 COPY packages/auth/package.json packages/auth/
 COPY packages/ui/package.json packages/ui/
+COPY packages/registration-core/package.json packages/registration-core/
 COPY apps/admin/package.json apps/admin/
 COPY apps/checkin/package.json apps/checkin/
 COPY apps/data-tools/package.json apps/data-tools/
 COPY apps/registration/package.json apps/registration/
 COPY apps/rollcall/package.json apps/rollcall/
 COPY apps/smallgroups/package.json apps/smallgroups/
+COPY apps/parents/package.json apps/parents/
 RUN npm ci --no-audit --no-fund
 
 FROM node:20-alpine AS build
@@ -20,6 +22,7 @@ ARG APP
 ARG NEXT_PUBLIC_SITE_URL=""
 ARG NEXT_PUBLIC_REGISTRATION_URL=""
 ARG NEXT_PUBLIC_CHECKIN_URL=""
+ARG NEXT_PUBLIC_PARENT_URL=""
 # registration（統一入口）的轉送目的地在 build 時決定（next.config.js 的 rewrites）
 ARG ADMIN_ORIGIN=""
 ARG CHECKIN_ORIGIN=""
@@ -31,6 +34,7 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
     NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL \
     NEXT_PUBLIC_REGISTRATION_URL=$NEXT_PUBLIC_REGISTRATION_URL \
     NEXT_PUBLIC_CHECKIN_URL=$NEXT_PUBLIC_CHECKIN_URL \
+    NEXT_PUBLIC_PARENT_URL=$NEXT_PUBLIC_PARENT_URL \
     ADMIN_ORIGIN=$ADMIN_ORIGIN \
     CHECKIN_ORIGIN=$CHECKIN_ORIGIN \
     ROLLCALL_ORIGIN=$ROLLCALL_ORIGIN \

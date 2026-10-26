@@ -2,6 +2,7 @@
   "version": "0.0.1",
   "configurations": [
     { "name": "registration", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev:registration"], "port": 3001 },
+    { "name": "parents", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev:parents"], "port": 3007 },
     { "name": "checkin", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev:checkin"], "port": 3002 },
     { "name": "rollcall", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev:rollcall"], "port": 3003 },
     { "name": "admin", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev:admin"], "port": 3004 },

@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from 'react';
 import { Alert, Button, Card, Field, Input } from '@kids/ui';
-import { onsiteFindFamily } from '@/lib/actions';
-import { RegisterForm } from './RegisterForm';
+import { onsiteFindFamily } from '@kids/registration-core/lib/actions';
+import { RegisterForm } from '@kids/registration-core/components/RegisterForm';
 
 type FormProps = Omit<React.ComponentProps<typeof RegisterForm>, 'mode' | 'source' | 'staff' | 'onsite' | 'initialPhone'>;
 

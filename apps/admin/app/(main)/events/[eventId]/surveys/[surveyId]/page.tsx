@@ -21,7 +21,8 @@ export default async function SurveyDetailPage({ params }: { params: { eventId: 
         return {} as Answers;
       }
     });
-  const base = (process.env.NEXT_PUBLIC_REGISTRATION_URL ?? '').replace(/\/+$/, '');
+  // 問卷在家長端（apps/parents）；沒有設定家長網址時沿用報名系統網址
+  const base = (process.env.NEXT_PUBLIC_PARENT_URL || process.env.NEXT_PUBLIC_REGISTRATION_URL || '').replace(/\/+$/, '');
   const url = `${base}/e/${params.eventId}/survey/${survey.問卷ID}`;
   const qr = base ? await QRCode.toDataURL(url, { margin: 1, width: 200 }) : '';
 

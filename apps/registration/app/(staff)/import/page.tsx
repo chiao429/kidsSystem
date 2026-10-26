@@ -3,9 +3,9 @@ import { requireSession } from '@kids/auth/next';
 import { Card, Field, Input, Select } from '@kids/ui';
 import { ActionForm, SubmitButton, type FormResult } from '@kids/ui/client';
 import { extractSheetIdFromUrl } from '@kids/sheets-core';
-import { getEvent } from '@/lib/events';
-import { importRows, readSheet, readUpload } from '@/lib/import';
-import { events } from '@/lib/tables';
+import { getEvent } from '@kids/registration-core/lib/events';
+import { importRows, readSheet, readUpload } from '@kids/registration-core/lib/import';
+import { events } from '@kids/registration-core/lib/tables';
 
 async function runImport(_: FormResult, formData: FormData): Promise<FormResult> {
   'use server';

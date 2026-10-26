@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Alert, Card, Field, Input, Select, Table } from '@kids/ui';
+import { Alert, Card, Field, Input, Select, Table, parentUrl } from '@kids/ui';
 import { ActionForm, SubmitButton } from '@kids/ui/client';
 import { RichText } from '@kids/ui/rich-text';
 import { requireSession } from '@kids/auth/next';
@@ -99,11 +99,11 @@ export default async function EventDescriptionPage({ params }: { params: { event
           <p className="text-sm text-gray-500">這場活動還沒有啟用中的課程。到「課程」頁新增課程並填寫「課程分組」（例如角落活動、歡樂小站），這裡就會出現對應的卡片。</p>
         </Card>
       )}
-      {/* 家長報名頁在統一入口的根路徑（registration），跨系統用原生連結 */}
+      {/* 家長報名頁在家長端（apps/parents），跨系統用完整網址 */}
       <DescriptionEditor
         eventId={params.eventId}
         initial={event.活動說明}
-        previewUrl={`/e/${event.活動ID}`}
+        previewUrl={parentUrl(`/e/${event.活動ID}`)}
         visibility={<SectionToggle eventId={params.eventId} section="supplement" initial={!hidden.has('supplement')} />}
       />
 
