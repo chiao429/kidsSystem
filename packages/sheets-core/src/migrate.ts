@@ -87,6 +87,7 @@ class Collector {
 
 export async function migrate(opts: MigrateOptions): Promise<MigrateReport> {
   const backend = backendFor(opts.source);
+  // 搬遷來源：純 Sheets 模式的主資料試算表（環境變數）
   const masterId = process.env.GOOGLE_MASTER_SHEET_ID ?? '';
   const c = new Collector();
 

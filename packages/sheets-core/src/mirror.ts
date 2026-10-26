@@ -4,6 +4,7 @@ import {
 } from '@kids/schema';
 import { getBackend } from './backend';
 import { extractSheetIdFromUrl } from './client';
+import { getMasterSheetId } from './settings';
 import { collectionOf, docId, getDb, type StoredDoc } from './mongo';
 import { normalizeRow } from './store';
 import { SheetTable } from './table';
@@ -51,7 +52,7 @@ async function releaseLock() {
 
 /** scope → 鏡像目的地試算表 ID */
 export async function mirrorSheetId(scope: string): Promise<string> {
-  if (scope === 'master') return process.env.GOOGLE_MASTER_SHEET_ID ?? '';
+  if (scope === 'master') return getMasterSheetId();
   const ev = await (await collectionOf(EventTable)).findOne({ _id: docId('master', scope), _deleted: false });
   return ev ? extractSheetIdFromUrl(String(ev['活動試算表'] ?? '')) : '';
 }
@@ -302,7 +303,7 @@ export interface SheetEdit {
 export type SheetEditResult = { status: 'applied' } | { status: 'conflict' | 'rejected'; reason: string };
 
 async function scopeOfSheet(spreadsheetId: string): Promise<string | null> {
-  if (spreadsheetId === process.env.GOOGLE_MASTER_SHEET_ID) return 'master';
+  if (spreadsheetId === (await getMasterSheetId())) return 'master';
   const events = await (await collectionOf(EventTable)).find({ _scope: 'master', _deleted: false }).toArray();
   const ev = events.find((e) => extractSheetIdFromUrl(String(e['活動試算表'] ?? '')) === spreadsheetId);
   return ev ? String(ev['活動ID']) : null;
@@ -361,7 +362,7 @@ export async function applySheetEdit(edit: SheetEdit): Promise<SheetEditResult> 
 export async function syncTargets(): Promise<{ master: string; events: { eventId: string; spreadsheetId: string }[] }> {
   const events = await (await collectionOf(EventTable)).find({ _scope: 'master', _deleted: false, 狀態: { $nin: ['已結束', '已封存'] } }).toArray();
   return {
-    master: process.env.GOOGLE_MASTER_SHEET_ID ?? '',
+    master: await getMasterSheetId(),
     events: events
       .map((e) => ({ eventId: String(e['活動ID']), spreadsheetId: extractSheetIdFromUrl(String(e['活動試算表'] ?? '')) }))
       .filter((e) => e.spreadsheetId),
