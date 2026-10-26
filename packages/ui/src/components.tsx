@@ -161,69 +161,17 @@ export function Shell({
   children: ReactNode;
 }) {
   return (
-    <div style={{ ['--brand' as string]: brand }} className="min-h-screen bg-[#f1f3f7] lg:flex">
-      <aside className="hidden w-64 shrink-0 flex-col bg-gradient-to-b from-[#5969ed] via-[#4c7cf0] to-[#20d1d3] px-5 py-6 text-white lg:flex">
-        <a href={withBase('/')} className="mb-8 text-xl font-extrabold tracking-tight text-white">
-          {title}
-        </a>
-        {user && (
-          <div className="mb-6 flex items-center gap-3 rounded-2xl bg-white/15 px-3 py-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-sm font-bold text-[#315bc7]">{user.slice(0, 1)}</span>
-            <div className="min-w-0">
-              <div className="truncate text-sm font-semibold">{user}</div>
-              <div className="text-xs text-white/70">目前登入</div>
-            </div>
-          </div>
-        )}
-        <nav className="flex flex-1 flex-col gap-1.5 text-sm">
-          {nav.map((n) =>
-            n.children ? (
-              <NavGroup key={n.label} item={n} />
-            ) : (
-              <a key={n.href} href={withBase(n.href)} className="rounded-xl px-4 py-3 font-medium text-white/85 transition hover:bg-white/15 hover:text-white">
-                {n.label}
-              </a>
-            ),
-          )}
-        </nav>
-        {/* 其他系統（依權限）放在底部，改密碼、登出的上面 */}
-        {systems.length > 0 && (
-          <nav className="mt-6 flex flex-col gap-1 border-t border-white/20 pt-4 text-sm">
-            <div className="px-4 pb-1 text-xs text-white/60">其他系統</div>
-            {systems.map((n) => (
-              <a key={n.href} href={n.href} className="rounded-xl px-4 py-2 font-medium text-white/80 transition hover:bg-white/15 hover:text-white">
-                {n.label}
-              </a>
-            ))}
-          </nav>
-        )}
-        {footerNav.length > 0 && (
-          <nav className="mt-6 border-t border-white/20 pt-4 text-sm">
-            {footerNav.map((n) => (
-              <a key={n.href} href={withBase(n.href)} className="block rounded-xl px-4 py-2 font-medium text-white/80 transition hover:bg-white/15 hover:text-white">
-                {n.label}
-              </a>
-            ))}
-          </nav>
-        )}
-        {user && (
-          <div className={footerNav.length > 0 || systems.length > 0 ? 'mt-1' : 'mt-6 border-t border-white/20 pt-4'}>
-            <a href={withBase('/password')} className="block rounded-xl px-4 py-2 text-sm text-white/80 hover:bg-white/15 hover:text-white">改密碼</a>
-            <form action={logoutAction}>
-              <button className="w-full rounded-xl px-4 py-2 text-left text-sm text-white/80 hover:bg-white/15 hover:text-white">登出</button>
-            </form>
-          </div>
-        )}
-      </aside>
+    <div style={{ ['--brand' as string]: brand }} className="min-h-screen bg-[#f1f3f7]">
       {/* 直向排列、至少一個畫面高：內容不多時頁尾也會在畫面最底下 */}
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 bg-[#17294d] text-white shadow-sm">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-4 sm:px-6">
-            <a href={withBase('/')} className="text-lg font-extrabold tracking-tight lg:hidden">{title}</a>
-            <MobileMenu nav={nav} systems={systems} user={user} logoutAction={logoutAction} />
+            {/* 選單一律收在漢堡按鈕裡（桌機、手機相同），點開由左側滑出 */}
+            <MobileMenu nav={[...nav, ...footerNav]} systems={systems} user={user} logoutAction={logoutAction} title={title} />
+            <a href={withBase('/')} className="text-lg font-extrabold tracking-tight">{title}</a>
             {user && (
               // 改密碼、登出在左側選單（桌機）與漢堡選單（手機），右上角只顯示問候
-              <span className="ml-auto hidden text-sm text-white/80 lg:block">Hi, {user}</span>
+              <span className="ml-auto hidden text-sm text-white/80 sm:block">Hi, {user}</span>
             )}
           </div>
         </header>

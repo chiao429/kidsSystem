@@ -106,9 +106,15 @@ export function RollSheet({
       else router.refresh();
     });
 
-  const [online, setOnline] = useState(meeting);
+  // 沒填過的欄位預設顯示 0（統計時沒填也算 0）
+  const [online, setOnline] = useState<Record<MeetingField, string>>(
+    () => Object.fromEntries(MEETING_FIELDS.map(([k]) => [k, meeting[k] || '0'])) as Record<MeetingField, string>,
+  );
+  // 最後一次儲存的值：沒變就不送出
+  const savedOnline = useRef<Record<MeetingField, string>>({ ...online });
   const saveOnline = async (k: MeetingField, v: string) => {
-    if (v === meeting[k] && v === online[k]) return;
+    if (v === savedOnline.current[k]) return;
+    savedOnline.current = { ...savedOnline.current, [k]: v };
     setError('');
     const res = await saveMeeting(groupId, date, { [k]: v }).catch(() => ({ error: '儲存失敗，請檢查網路' }));
     if (res.error) setError(res.error);

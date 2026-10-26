@@ -2,15 +2,17 @@ import { Badge, Card, Field, Input, Select } from '@kids/ui';
 import { ActionForm, SubmitButton } from '@kids/ui/client';
 import { requireSession } from '@kids/auth/next';
 import { BASES } from '@kids/schema';
-import { saveGroup } from '@/lib/actions';
+import { deleteGroup, saveGroup } from '@/lib/actions';
+import { DeleteButton } from '@/components/DeleteButton';
 import { listGroups, type SmallGroup } from '@/lib/data';
 import { SheetImport } from '@/components/SheetImport';
-import { accounts } from '@/lib/tables';
+import { accounts, smallGroupMembers } from '@/lib/tables';
 
 /** 小組設定（設定檔）：小組名稱、基地、排序、負責人、啟用／停用 */
 export default async function SettingsPage() {
   requireSession({ permission: 'smallgroup-settings' });
-  const [groups, accs] = await Promise.all([listGroups(), accounts().all()]);
+  const [groups, accs, mm] = await Promise.all([listGroups(), accounts().all(), smallGroupMembers().all()]);
+  const memberCount = (id: string) => mm.filter((m) => m.小組ID === id && !m.離開日期).length;
   const people = accs.filter((a) => a.啟用 !== 'N').map((a) => ({ id: a.帳號, name: a.名稱 || a.帳號 }));
   return (
     <>
@@ -18,7 +20,19 @@ export default async function SettingsPage() {
       <SheetImport kind="groups" />
       <p className="text-sm text-gray-600">負責人可以點名自己的小組；角色範圍不是「只限自己負責」的帳號可以點所有小組。停用的小組不會出現在點名列表，紀錄都會保留。</p>
       {[...groups, null].map((g) => (
-        <Card key={g?.小組ID ?? 'new'} title={g ? <span>{g.名稱} {g.狀態 === '停用' && <Badge tone="gray">停用</Badge>}</span> : '新增小組'}>
+        <Card
+          key={g?.小組ID ?? 'new'}
+          title={g ? <span>{g.名稱} {g.狀態 === '停用' && <Badge tone="gray">停用</Badge>}</span> : '新增小組'}
+          actions={
+            g && (
+              <DeleteButton
+                title={`刪除「${g.名稱}」？`}
+                description={`會直接刪除這個小組，以及它的組員名單（目前 ${memberCount(g.小組ID)} 位）、所有點名紀錄與線上聚會人數，無法復原；孩子本身的資料不受影響。只是暫時不用的話，可以把狀態改成「停用」。`}
+                action={deleteGroup.bind(null, g.小組ID)}
+              />
+            )
+          }
+        >
           <GroupForm group={g} people={people} />
         </Card>
       ))}

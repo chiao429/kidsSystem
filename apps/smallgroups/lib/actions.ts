@@ -291,3 +291,22 @@ export async function setLineGroup(_: FormResult, formData: FormData): Promise<F
   revalidatePath('/report');
   return { message: id ? '已設定 LINE 群組' : '已清除 LINE 群組' };
 }
+
+/**
+ * 直接刪除小組（無法復原）：一併刪除這個小組的組員紀錄、點名紀錄與線上聚會人數；孩子本身的資料不受影響。
+ */
+export async function deleteGroup(小組ID: string): Promise<{ error?: string }> {
+  const session = requireSession({ permission: 'smallgroup-settings' });
+  const group = (await listGroups()).find((g) => g.小組ID === 小組ID);
+  if (!group) return { error: '找不到這個小組' };
+  await ensureSmallGroupTables();
+  const [mm, aa, gm] = await Promise.all([smallGroupMembers().all({ fresh: true }), smallGroupAttendance().all({ fresh: true }), smallGroupMeetings().all({ fresh: true })]);
+  await smallGroupMembers().deleteByIds(mm.filter((m) => m.小組ID === 小組ID).map((m) => m.小組成員ID));
+  await smallGroupAttendance().deleteByIds(aa.filter((a) => a.小組ID === 小組ID).map((a) => a.小組點名ID));
+  await smallGroupMeetings().deleteByIds(gm.filter((m) => m.小組ID === 小組ID).map((m) => m.小組聚會ID));
+  await smallGroups().deleteByIds([小組ID]);
+  console.info(`[deleteGroup] ${session.account} 刪除小組 ${group.名稱}（${小組ID}）`);
+  revalidatePath('/settings');
+  revalidatePath('/');
+  return {};
+}

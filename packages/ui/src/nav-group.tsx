@@ -47,14 +47,16 @@ export function NavGroup({ item }: { item: NavItem }) {
   );
 }
 
-/** 手機版選單：右上角漢堡按鈕，點開後由上方展開完整選單（含系統設定群組、其他系統、改密碼、登出） */
+/** 主選單：漢堡按鈕，點開後由左側滑出完整選單（含系統設定群組、其他系統、改密碼、登出） */
 export function MobileMenu({
   nav,
   systems,
   user,
   logoutAction,
+  title,
 }: {
   nav: NavItem[];
+  title?: string;
   systems: NavItem[];
   user?: string;
   logoutAction?: () => Promise<void>;
@@ -65,7 +67,7 @@ export function MobileMenu({
   useEffect(() => setOpen(false), [pathname]);
   const link = 'block rounded-xl px-4 py-3 font-medium text-white/85 hover:bg-white/15 hover:text-white';
   return (
-    <div className="ml-auto lg:hidden">
+    <div>
       <button
         type="button"
         aria-label={open ? '關閉選單' : '開啟選單'}
@@ -79,9 +81,23 @@ export function MobileMenu({
       </button>
       {open && (
         <>
-          <div className="fixed inset-0 top-[72px] z-20 bg-black/40" onClick={() => setOpen(false)} aria-hidden />
-          <nav className="absolute inset-x-0 top-full z-30 max-h-[calc(100vh-72px)] overflow-y-auto bg-gradient-to-b from-[#5969ed] to-[#4c7cf0] px-4 py-4 text-sm shadow-lg">
-            {user && <div className="mb-2 px-4 text-xs text-white/70">目前登入：{user}</div>}
+          <div className="fixed inset-0 z-40 bg-black/40" onClick={() => setOpen(false)} aria-hidden />
+          <nav className="fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col overflow-y-auto bg-gradient-to-b from-[#5969ed] via-[#4c7cf0] to-[#20d1d3] px-4 py-5 text-sm shadow-2xl">
+            <div className="mb-4 flex items-center justify-between px-2">
+              <span className="text-lg font-extrabold">{title}</span>
+              <button type="button" aria-label="關閉選單" onClick={() => setOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-xl text-xl hover:bg-white/15">
+                ×
+              </button>
+            </div>
+            {user && (
+              <div className="mb-4 flex items-center gap-3 rounded-2xl bg-white/15 px-3 py-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-sm font-bold text-[#315bc7]">{user.slice(0, 1)}</span>
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-semibold">{user}</div>
+                  <div className="text-xs text-white/70">目前登入</div>
+                </div>
+              </div>
+            )}
             {nav.map((n) =>
               n.children ? (
                 <NavGroup key={n.label} item={n} />
