@@ -6,6 +6,7 @@ import {
   LEARNER_ROLES,
   RegistrationStatus,
   baseOf,
+  isTestHousehold,
   gradeGroup,
   type BaseName,
   gradeRank,
@@ -45,7 +46,8 @@ export interface Kid {
 }
 
 /** 參加名單：報名 × 成員 × 家庭，手足依「家庭ID」判斷（只列同活動有報名的手足） */
-export async function loadRoster(eventId: string, opts: { statuses?: string[] } = {}): Promise<Kid[]> {
+/** excludeTest：排除測試家庭（匯出報表用；分隊時仍包含，方便測試點名） */
+export async function loadRoster(eventId: string, opts: { statuses?: string[]; excludeTest?: boolean } = {}): Promise<Kid[]> {
   const statuses = opts.statuses ?? [RegistrationStatus.Accepted];
   const [regs, mm, hh, gg, gm] = await Promise.all([
     registrations(eventId).all(),
@@ -69,6 +71,7 @@ export async function loadRoster(eventId: string, opts: { statuses?: string[] } 
 
   const kids: Kid[] = regs
     .filter((r) => statuses.includes(r.狀態))
+    .filter((r) => !opts.excludeTest || !isTestHousehold(householdById.get(r.家庭ID) ?? {}))
     .map((r) => {
       const m = memberById.get(r.成員ID);
       const h = householdById.get(r.家庭ID);

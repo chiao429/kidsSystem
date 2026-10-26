@@ -57,15 +57,19 @@ export const HouseholdTable = defineTable({
   scope: 'master',
   idColumn: '家庭ID',
   // PIN：家長登入時以手機＋4 位數 PIN 帶入資料；連續錯誤會暫時鎖定
-  headers: ['家庭ID', '主要聯絡人', '電話', 'Email', '地址', '建立時間', '更新時間', 'PIN雜湊', 'PIN錯誤次數', 'PIN鎖定至'],
+  // 測試＝Y：工作人員測試用的家庭，可以正常報名、報到，但不納入報表、統計與匯出
+  headers: ['家庭ID', '主要聯絡人', '電話', 'Email', '地址', '建立時間', '更新時間', 'PIN雜湊', 'PIN錯誤次數', 'PIN鎖定至', '測試'],
   owner: 'registration',
-  // admin 可重設 PIN（清空後家長用孩子生日驗證再設定）
-  updatableBy: { admin: ['主要聯絡人', '電話', 'Email', '地址', '更新時間', 'PIN雜湊', 'PIN錯誤次數', 'PIN鎖定至'] },
+  // admin 可重設 PIN（清空後家長用孩子生日驗證再設定）、標記測試家庭
+  updatableBy: { admin: ['主要聯絡人', '電話', 'Email', '地址', '更新時間', 'PIN雜湊', 'PIN錯誤次數', 'PIN鎖定至', '測試'] },
   sheetEditable: ['主要聯絡人', '電話', 'Email', '地址'],
   mirrorExclude: ['PIN雜湊', 'PIN錯誤次數', 'PIN鎖定至'],
   // 後台可刪除家庭（連同成員；有進行中的報名時由後台擋下）
   deletableBy: ['admin'],
 });
+
+/** 工作人員測試用的家庭（不納入報表、統計與匯出） */
+export const isTestHousehold = (h: { 測試?: string }) => h.測試 === 'Y';
 
 export const MemberTable = defineTable({
   tab: '成員',

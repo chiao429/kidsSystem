@@ -335,6 +335,7 @@ export function CheckInBoard({ eventId, initial, autoCheckIn = [] }: { eventId: 
                 {r.報名類型 === '第一次報名' && <Badge tone="blue">第一次</Badge>}
                 {!base && <Badge tone={r.基地 === '夢夢' ? 'purple' : 'blue'}>{r.基地}</Badge>}
                 {highlight.has(r.報名ID) && <Badge tone="green">剛現場報名</Badge>}
+                {r.測試 && <Badge tone="gray">測試</Badge>}
                 {r.繳費狀態 === '已繳' ? <Badge tone="green">已繳 {r.繳費金額} 元</Badge> : r.應繳 > 0 && <Badge tone="amber">未繳 {r.應繳} 元</Badge>}
               </div>
               <div className="text-sm text-gray-600">

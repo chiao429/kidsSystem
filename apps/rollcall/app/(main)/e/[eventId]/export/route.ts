@@ -1,6 +1,6 @@
 import { requireSession } from '@kids/auth/next';
 import { BASES } from '@kids/schema';
-import { getEvent, loadGroups } from '@/lib/data';
+import { getEvent, loadGroups, testScope } from '@/lib/data';
 import { attendance, schedules } from '@/lib/tables';
 
 export const dynamic = 'force-dynamic';
@@ -14,7 +14,9 @@ export async function GET(_req: Request, { params }: { params: { eventId: string
   const event = await getEvent(params.eventId);
   const { allowed, byId } = await loadGroups(event.活動ID, session, event.rules);
   const allowedIds = new Set(allowed.map((g) => g.分組ID));
-  const [aa, ss] = await Promise.all([attendance(event.活動ID).all(), schedules(event.活動ID).all()]);
+  const [allAttendance, ss, test] = await Promise.all([attendance(event.活動ID).all(), schedules(event.活動ID).all(), testScope(event.活動ID)]);
+  // 匯出不含測試家庭
+  const aa = allAttendance.filter((a) => !test.memberIds.has(a.成員ID));
   const slotById = new Map(ss.map((s) => [s.時段ID, s]));
   const rows = aa
     .filter((a) => allowedIds.has(a.分組ID))

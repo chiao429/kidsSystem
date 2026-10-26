@@ -2,11 +2,19 @@ import 'server-only';
 import { canAccessEvent, type Session } from '@kids/auth';
 import {
   CheckInStatus, EventStatus, GROUP_TYPES, GroupType, RegistrationStatus, groupsOfType, hasGroupType, isArchivedEvent,
-  LEARNER_ROLES, groupBaseOf, leaderGroupIds, membersOfGroup, parseRules, splitList, type BaseName,
+  LEARNER_ROLES, groupBaseOf, isTestHousehold, leaderGroupIds, membersOfGroup, parseRules, splitList, type BaseName,
 } from '@kids/schema';
 import type { EventRules } from '@kids/schema';
 import { extractSheetIdFromUrl } from '@kids/sheets-core';
-import { attendance, checkIns, events, groupMembers, groups, registrations, schedules } from './tables';
+import { attendance, checkIns, events, groupMembers, groups, households, registrations, schedules } from './tables';
+
+/** 測試家庭（工作人員測試帳號）在這場活動的報名ID 與成員ID：統計與匯出排除 */
+export async function testScope(eventId: string) {
+  const [hh, regs] = await Promise.all([households().all(), registrations(eventId).all()]);
+  const families = new Set(hh.filter(isTestHousehold).map((h) => h.家庭ID));
+  const testRegs = regs.filter((r) => families.has(r.家庭ID));
+  return { regIds: new Set(testRegs.map((r) => r.報名ID)), memberIds: new Set(testRegs.map((r) => r.成員ID)) };
+}
 
 export async function listEvents(session: Session) {
   return (await events().all()).filter((e) => canAccessEvent(session, e.活動ID) && e.狀態 !== EventStatus.Ended && !isArchivedEvent(e));

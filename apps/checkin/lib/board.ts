@@ -1,6 +1,6 @@
 import 'server-only';
 import {
-  CheckInStatus, ENROLLED_ROLES, baseOf, GroupRole, GroupType, LEARNER_ROLES, RegistrationStatus, courseLabel, gradeRank, groupsOfType, hasGroupType, nowString,
+  CheckInStatus, ENROLLED_ROLES, baseOf, isTestHousehold, GroupRole, GroupType, LEARNER_ROLES, RegistrationStatus, courseLabel, gradeRank, groupsOfType, hasGroupType, nowString,
 } from '@kids/schema';
 import { getEvent } from './events';
 import { checkIns, groupMembers, groups, households, members, registrations, schedules } from './tables';
@@ -80,6 +80,7 @@ export async function loadBoard(eventId: string, course = ''): Promise<Board> {
         繳費狀態: r.繳費狀態 ?? '',
         繳費金額: r.繳費金額 ?? '',
         基地: baseOf(m?.年級 || r.年級),
+        測試: !!h && isTestHousehold(h),
         應繳: courses.filter((x) => !x.備取).reduce((sum, x) => sum + (feeById.get(x.分組ID) ?? 0), 0),
       };
     })

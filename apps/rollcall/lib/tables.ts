@@ -1,12 +1,14 @@
 import 'server-only';
 import { SheetTable } from '@kids/sheets-core';
 import {
+  HouseholdTable,
   EventTable, RegistrationTable, GroupTable, GroupMemberTable, ScheduleTable, CheckInTable, AttendanceTable, LogTable,
 } from '@kids/schema';
 
 const RC = 'rollcall' as const;
 
 export const events = () => new SheetTable('master', EventTable, RC, { ttlMs: 60_000 });
+export const households = () => new SheetTable('master', HouseholdTable, RC, { ttlMs: 60_000 });
 export const registrations = (eventId: string) => new SheetTable(eventId, RegistrationTable, RC, { ttlMs: 30_000 });
 export const groups = (eventId: string) => new SheetTable(eventId, GroupTable, RC, { ttlMs: 60_000 });
 export const groupMembers = (eventId: string) => new SheetTable(eventId, GroupMemberTable, RC, { ttlMs: 30_000 });

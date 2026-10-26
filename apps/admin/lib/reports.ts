@@ -1,5 +1,5 @@
 import 'server-only';
-import { BASES, CheckInStatus, LEARNER_ROLES, RegistrationStatus, baseOf, gradeGroup, groupBaseOf, GRADE_GROUP_ORDER } from '@kids/schema';
+import { BASES, CheckInStatus, LEARNER_ROLES, RegistrationStatus, baseOf, gradeGroup, groupBaseOf, isTestHousehold, GRADE_GROUP_ORDER } from '@kids/schema';
 
 /** 思麥特在前、夢夢在後 */
 const baseIndex = (b: string) => BASES.findIndex((x) => x.short === b);
@@ -26,10 +26,21 @@ export const DATASETS = {
 
 export type DatasetKey = keyof typeof DATASETS;
 
+/** 測試家庭（工作人員測試帳號）的報名與成員：報表、統計與匯出都排除 */
+async function testScope(eventId: string) {
+  const [hh, mm, regs] = await Promise.all([households().all(), members().all(), registrations(eventId).all()]);
+  const families = new Set(hh.filter(isTestHousehold).map((h) => h.家庭ID));
+  return {
+    regIds: new Set(regs.filter((r) => families.has(r.家庭ID)).map((r) => r.報名ID)),
+    memberIds: new Set(mm.filter((m) => families.has(m.家庭ID)).map((m) => m.成員ID)),
+  };
+}
+
 const pct = (n: number, d: number) => (d ? `${Math.round((n / d) * 100)}%` : '');
 
 export async function buildDataset(eventId: string, key: DatasetKey, eventName = ''): Promise<Record<string, string>[]> {
-  const state = await loadGroupState(eventId);
+  const [state, test] = await Promise.all([loadGroupState(eventId), testScope(eventId)]);
+  const notTestMember = (成員ID: string) => !test.memberIds.has(成員ID);
   const groupLabel = (id: string) => state.byId.get(id)?.名稱 ?? '';
   if (key === 'roster') {
     const [regs, mm, hh, cc] = await Promise.all([
@@ -42,6 +53,7 @@ export async function buildDataset(eventId: string, key: DatasetKey, eventName =
     const h = new Map(hh.map((x) => [x.家庭ID, x]));
     const c = new Map(cc.filter((x) => !x.分組ID).map((x) => [x.報名ID, x]));
     return regs
+      .filter((r) => !test.regIds.has(r.報名ID))
       // 依基地分開（思麥特在前），再依序號
       .sort(
         (a, b) =>
@@ -87,12 +99,14 @@ export async function buildDataset(eventId: string, key: DatasetKey, eventName =
       });
   }
   if (key === 'checkins') {
-    return (await checkIns(eventId).all()).map((c) => ({ ...c, 報到對象: c.分組ID ? groupLabel(c.分組ID) : '一般報到' }));
+    return (await checkIns(eventId).all()).filter((c) => !test.regIds.has(c.報名ID)).map((c) => ({ ...c, 報到對象: c.分組ID ? groupLabel(c.分組ID) : '一般報到' }));
   }
   if (key === 'logs') return (await logs(eventId).all()) as unknown as Record<string, string>[];
-  const [aa, ss] = await Promise.all([attendance(eventId).all(), schedules(eventId).all()]);
+  const [allAttendance, ss] = await Promise.all([attendance(eventId).all(), schedules(eventId).all()]);
+  const aa = allAttendance.filter((a) => notTestMember(a.成員ID));
   const slot = new Map(ss.map((s) => [s.時段ID, s]));
-  if (key === 'groupMembers' || key === 'groupStats') return buildGroupDatasets(eventId, key, eventName, state, aa, ss);
+  const realState = { ...state, members: state.members.filter((m) => notTestMember(m.成員ID) && !(m.報名ID && test.regIds.has(m.報名ID))) };
+  if (key === 'groupMembers' || key === 'groupStats') return buildGroupDatasets(eventId, key, eventName, realState, aa, ss);
   const baseOfGroup = groupBases(state);
   return aa.map((a) => {
     const s = slot.get(a.時段ID);
@@ -200,12 +214,17 @@ async function buildGroupDatasets(
 }
 
 export async function summary(eventId: string) {
-  const [regs, cc, aa, state] = await Promise.all([
+  const [allRegs, allCheckIns, allAttendance, state, test] = await Promise.all([
     registrations(eventId).all(),
     checkIns(eventId).all(),
     attendance(eventId).all(),
     loadGroupState(eventId),
+    testScope(eventId),
   ]);
+  // 測試家庭不納入統計
+  const regs = allRegs.filter((r) => !test.regIds.has(r.報名ID));
+  const cc = allCheckIns.filter((c) => !test.regIds.has(c.報名ID));
+  const aa = allAttendance.filter((a) => !test.memberIds.has(a.成員ID));
   const active = regs.filter((r) => r.狀態 !== RegistrationStatus.Cancelled);
   const countBy = <T,>(list: T[], key: (x: T) => string) => {
     const m = new Map<string, number>();

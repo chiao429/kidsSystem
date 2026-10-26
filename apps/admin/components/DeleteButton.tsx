@@ -26,6 +26,7 @@ export function DeleteButton({
       if (res.error) return setError(res.error);
       setOpen(false);
       if (redirectTo) router.push(redirectTo);
+      else router.refresh();
     });
   return (
     <>

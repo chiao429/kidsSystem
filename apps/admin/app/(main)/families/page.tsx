@@ -1,7 +1,10 @@
 import Link from 'next/link';
-import { Card, Empty, Input, Table } from '@kids/ui';
+import { Badge, Card, Empty, Input, Table } from '@kids/ui';
+import { isTestHousehold } from '@kids/schema';
 import { requireSession } from '@kids/auth/next';
 import { households, members } from '@/lib/tables';
+import { DeleteButton } from '@/components/DeleteButton';
+import { deleteHousehold } from '@/lib/family-actions';
 
 export default async function FamiliesPage({ searchParams }: { searchParams: { q?: string } }) {
   requireSession({ permission: 'families' });
@@ -27,17 +30,30 @@ export default async function FamiliesPage({ searchParams }: { searchParams: { q
       {rows.length === 0 ? (
         <Empty>沒有符合的家庭</Empty>
       ) : (
-        <Table head={['主要聯絡人', '電話', '成員', '家庭ID']}>
+        <Table head={['主要聯絡人', '電話', '成員', '家庭ID', '']}>
           {rows.map((h) => (
             <tr key={h.家庭ID}>
               <td className="px-2 py-1.5">
                 <Link href={`/families/${h.家庭ID}`} className="text-[#315bc7] underline">
                   {h.主要聯絡人 || '（未填）'}
                 </Link>
+                {isTestHousehold(h) && (
+                  <span className="ml-2">
+                    <Badge tone="amber">測試</Badge>
+                  </span>
+                )}
               </td>
               <td className="px-2 py-1.5 tabular-nums">{h.電話}</td>
               <td className="px-2 py-1.5">{namesOf(h.家庭ID).join('、')}</td>
               <td className="px-2 py-1.5 font-mono text-xs text-gray-500">{h.家庭ID}</td>
+              <td className="px-2 py-1.5 text-right">
+                {/* 直接刪除家庭與成員（不是封存）；還有報名時會擋下 */}
+                <DeleteButton
+                  title={`刪除 ${h.主要聯絡人 || h.家庭ID} 的家庭？`}
+                  description={`會直接刪除家庭資料與成員（${namesOf(h.家庭ID).join('、') || '無'}），無法復原。`}
+                  action={deleteHousehold.bind(null, h.家庭ID)}
+                />
+              </td>
             </tr>
           ))}
         </Table>

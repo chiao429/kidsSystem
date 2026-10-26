@@ -12,7 +12,7 @@ const HOUSEHOLD_FIELDS = (HouseholdTable.updatableBy?.admin ?? []).filter((h) =>
 const MEMBER_FIELDS = (MemberTable.updatableBy?.admin ?? []).filter((h) => h !== '更新時間');
 
 /** 表單欄位 name（必須是英文：Next 14 Server Action 會把中文 name 解壞，送來的值變空白） */
-const HOUSEHOLD_FORM_NAMES: Record<string, string> = { 主要聯絡人: 'contact', 電話: 'phone', Email: 'email', 地址: 'address' };
+const HOUSEHOLD_FORM_NAMES: Record<string, string> = { 主要聯絡人: 'contact', 電話: 'phone', Email: 'email', 地址: 'address', 測試: 'test' };
 const MEMBER_FORM_NAMES: Record<string, string> = {
   姓名: 'name', 性別: 'gender', 生日: 'birthday', 年級: 'grade', 學校: 'school', 類型: 'type', 特殊需求: 'needs',
 };
@@ -36,6 +36,8 @@ export async function saveHousehold(家庭ID: string, _: FormResult, formData: F
   if (!current) return { error: '找不到此家庭' };
   const changes = diff(HOUSEHOLD_FIELDS, formData, current, HOUSEHOLD_FORM_NAMES);
   if (Object.keys(changes).length === 0) return { message: '沒有變更' };
+  // 「測試」欄是後來加的，寫入前先確認欄位存在
+  if ('測試' in changes) await households().ensure();
   await households().updateByIds([{ id: 家庭ID, changes }]);
   revalidatePath(`/families/${家庭ID}`);
   return { message: '已儲存家庭資料' };

@@ -65,7 +65,8 @@ export function Dashboard({ eventId, initial, initialSlots }: { eventId: string;
     return list;
   }, [board, mode]);
   // 依基地分開：選了思麥特或夢夢時，所有統計與名單只算該基地
-  const inBase = <T extends { 基地: string }>(list: T[]) => (base ? list.filter((r) => r.基地 === base) : list);
+  // 測試家庭（工作人員測試帳號）不計入儀表板統計
+  const inBase = <T extends { 基地: string; 測試: boolean }>(list: T[]) => list.filter((r) => !r.測試 && (!base || r.基地 === base));
   const rowsOf = (id: string) =>
     inBase(
       mode === '課程'
@@ -98,7 +99,7 @@ export function Dashboard({ eventId, initial, initialSlots }: { eventId: string;
 
   return (
     <div className="space-y-4">
-      <BaseTabs rows={board.rows} value={base} onChange={setBase} />
+      <BaseTabs rows={board.rows.filter((r) => !r.測試)} value={base} onChange={setBase} />
       <Card
         title={`${groupLabel}篩選`}
         actions={

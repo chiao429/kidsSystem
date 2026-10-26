@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { Badge, Card, Field, Input, Select, Textarea } from '@kids/ui';
 import { ActionForm, SubmitButton } from '@kids/ui/client';
 import { requireSession } from '@kids/auth/next';
-import { MemberType, gradeChoices } from '@kids/schema';
+import { MemberType, gradeChoices, isTestHousehold } from '@kids/schema';
 import { deleteHousehold, deleteMember, resetHouseholdPin, saveHousehold, saveMember } from '@/lib/family-actions';
 import { households, members } from '@/lib/tables';
 import { DeleteButton } from '@/components/DeleteButton';
@@ -19,7 +19,12 @@ export default async function FamilyPage({ params }: { params: { householdId: st
         ← 家庭與成員
       </Link>
       <Card
-        title={`家庭：${h.主要聯絡人}`}
+        title={
+          <span className="flex items-center gap-2">
+            家庭：{h.主要聯絡人}
+            {isTestHousehold(h) && <Badge tone="amber">測試帳號</Badge>}
+          </span>
+        }
         actions={
           <div className="flex items-center gap-2">
             <span className="font-mono text-xs text-gray-400">{h.家庭ID}</span>
@@ -44,6 +49,12 @@ export default async function FamilyPage({ params }: { params: { householdId: st
           </Field>
           <Field label="地址">
             <Input name="address" defaultValue={h.地址} />
+          </Field>
+          <Field label="測試帳號" hint="工作人員測試用：可以正常報名、報到，但不納入報表、統計與匯出">
+            <Select name="test" defaultValue={h.測試 === 'Y' ? 'Y' : ''}>
+              <option value="">否（一般家庭）</option>
+              <option value="Y">是（測試帳號）</option>
+            </Select>
           </Field>
           <div>
             <SubmitButton>儲存家庭</SubmitButton>

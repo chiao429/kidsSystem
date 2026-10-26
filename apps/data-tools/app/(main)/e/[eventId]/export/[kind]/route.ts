@@ -14,7 +14,8 @@ export async function GET(req: Request, { params }: { params: { eventId: string;
   const event = await getEvent(params.eventId);
   const all = new URL(req.url).searchParams.get('all');
   const statuses = all ? Object.values(RegistrationStatus).filter((s) => s !== '取消') : undefined;
-  const kids = await loadRoster(event.活動ID, { statuses });
+  // 匯出不含測試家庭
+  const kids = await loadRoster(event.活動ID, { statuses, excludeTest: true });
 
   if (params.kind === 'grades') {
     // 總表：依基地分開（思麥特在前），基地內依序號排序，手足展開成多列

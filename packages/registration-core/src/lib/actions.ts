@@ -323,7 +323,7 @@ export async function submitRegistration(payload: RegisterPayload): Promise<Regi
   if (isNewHousehold) {
     await households().ensure();
     await households().append([
-      { 家庭ID, ...household, 建立時間: now, 更新時間: now, PIN雜湊: payload.pin ? hashPin(payload.pin) : '', PIN錯誤次數: '', PIN鎖定至: '' },
+      { 家庭ID, ...household, 建立時間: now, 更新時間: now, PIN雜湊: payload.pin ? hashPin(payload.pin) : '', PIN錯誤次數: '', PIN鎖定至: '', 測試: '' },
     ]);
   } else {
     // 既有家庭可更新 Email / 地址

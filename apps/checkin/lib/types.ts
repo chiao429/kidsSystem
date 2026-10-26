@@ -29,6 +29,8 @@ export interface BoardRow {
   應繳: number;
   /** 依年級：思麥特（國小）｜夢夢（學齡前） */
   基地: BaseName;
+  /** 測試家庭（工作人員測試帳號）：照常報到，但儀表板統計不計入 */
+  測試: boolean;
 }
 
 export interface GroupInfo {

@@ -1,6 +1,6 @@
 import 'server-only';
 import { BASES, RegistrationStatus, groupCounts } from '@kids/schema';
-import type { GroupRef } from './data';
+import { testScope, type GroupRef } from './data';
 import { attendance, groupMembers, registrations, schedules } from './tables';
 
 export interface SlotCol {
@@ -9,12 +9,15 @@ export interface SlotCol {
 }
 
 export async function loadStats(eventId: string, allowed: GroupRef[]) {
-  const [gm, regs, ss, aa] = await Promise.all([
+  const [gm, regs, ss, allAttendance, test] = await Promise.all([
     groupMembers(eventId).all(),
     registrations(eventId).all(),
     schedules(eventId).all(),
     attendance(eventId).all(),
+    testScope(eventId),
   ]);
+  // 測試家庭不納入統計
+  const aa = allAttendance.filter((a) => !test.memberIds.has(a.成員ID));
   const slotIds = Array.from(new Set(aa.map((a) => a.時段ID)));
   const slotById = new Map(ss.map((s) => [s.時段ID, s]));
   const cols: SlotCol[] = slotIds
@@ -29,7 +32,7 @@ export async function loadStats(eventId: string, allowed: GroupRef[]) {
     .sort((a, b) => a.sort.localeCompare(b.sort))
     .map(({ 時段ID, label }) => ({ 時段ID, label }));
 
-  const cancelled = new Set(regs.filter((r) => r.狀態 === RegistrationStatus.Cancelled).map((r) => r.報名ID));
+  const cancelled = new Set([...regs.filter((r) => r.狀態 === RegistrationStatus.Cancelled).map((r) => r.報名ID), ...test.regIds]);
   const sizes = groupCounts(gm, undefined, cancelled);
   const teamRows = allowed.map((g) => {
     const size = sizes.get(g.分組ID) ?? 0;
