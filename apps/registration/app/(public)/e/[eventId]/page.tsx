@@ -28,6 +28,7 @@ export default async function EventPage({ params }: { params: { eventId: string 
   const panelNames = courseGroupNames(courses);
   const panels = parseCoursePanels(event.分組說明);
   const panelDate = eventDateLabel(event);
+  const hidden = new Set(r.hiddenSections ?? []);
   // 報名教學：依序標示頁面上的區塊；報名沒開放時略過報名入口
   const tourSteps: TourStep[] = [
     { target: 'info', title: '先看活動資訊', text: '這裡是活動的時間、地點，以及報到與繳費時間。' },
@@ -67,7 +68,8 @@ export default async function EventPage({ params }: { params: { eventId: string 
           <EventInfoCard rows={infoRows} />
         </div>
       )}
-      {panelNames.map((name, i) => (
+      {/* 後台「報名頁內容」各區塊的「在家長頁顯示」關閉時不顯示 */}
+      {panelNames.filter((name) => !hidden.has(`panel:${name}`)).map((name, i) => (
         <CoursePanelCard
           tourTarget={i === 0 ? 'courses' : undefined}
           key={name}
@@ -77,8 +79,8 @@ export default async function EventPage({ params }: { params: { eventId: string 
           courses={courses.filter((c) => (c.課程分組?.trim() || '課程') === name)}
         />
       ))}
-      <SupplementCard html={event.活動說明} show={!!sanitizeRichText(event.活動說明)} />
-      <SignatureCard html={signature} show={!!sanitizeRichText(signature)} />
+      <SupplementCard html={event.活動說明} show={!hidden.has('supplement') && !!sanitizeRichText(event.活動說明)} />
+      <SignatureCard html={signature} show={!hidden.has('signature') && !!sanitizeRichText(signature)} />
       {/* 兩個報名入口上下排列、固定懸浮在右下角；預留底部空間避免蓋住最後的內容 */}
       {w.open && (
         <>

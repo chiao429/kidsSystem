@@ -6,7 +6,7 @@ import { RichTextEditor, type RichTextEditorHandle } from '@kids/ui/rich-text-ed
 import { saveEventDescription } from '@/lib/event-actions';
 
 /** 報名頁內容分頁的「補充資訊」（活動說明欄位）：全寬編輯器＋儲存＋預覽家長報名頁 */
-export function DescriptionEditor({ eventId, initial, previewUrl }: { eventId: string; initial: string; previewUrl: string }) {
+export function DescriptionEditor({ eventId, initial, previewUrl, visibility }: { eventId: string; initial: string; previewUrl: string; visibility?: React.ReactNode }) {
   const [html, setHtml] = useState(initial);
   // 編輯器在掛上 change 監聽之前就放好初始內容，所以收到 change 一定是使用者改的
   const [dirty, setDirty] = useState(false);
@@ -61,6 +61,7 @@ export function DescriptionEditor({ eventId, initial, previewUrl }: { eventId: s
     <div className="space-y-3">
       <div className="sticky top-16 z-10 flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur">
         <span className="text-sm font-semibold text-gray-800">補充資訊</span>
+        {visibility}
         {dirty ? <Badge tone="amber">尚未儲存</Badge> : <span className="text-xs text-gray-500">{message || '內容已儲存'}</span>}
         <div className="ml-auto flex flex-wrap gap-2">
           <a href={previewUrl} target="_blank" rel="noreferrer" className="inline-flex items-center rounded-full px-2.5 py-1 text-sm font-semibold text-[#4b5565] hover:bg-[#eef1f6]">

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Field, Input } from '@kids/ui';
 import { saveEventInfo } from '@/lib/event-actions';
+import { Toggle } from './Toggle';
 import { CHECKIN_PRESETS, OTHER, TIME_PRESETS, VENUE_PRESETS, formatDated, type DatedValue } from '@/lib/event-info';
 
 /** 一組單選（預設選項＋其他），選「其他」時才可輸入 */
@@ -164,17 +165,5 @@ export function EventInfoForm({
         </div>
       </div>
     </div>
-  );
-}
-
-/** 開關按鈕 */
-function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
-  return (
-    <button type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)} className="flex items-center gap-2 rounded-full border border-gray-200 bg-white py-1 pl-1 pr-3 text-sm font-medium text-gray-700">
-      <span className={`relative h-6 w-11 rounded-full transition ${checked ? 'bg-[#315bc7]' : 'bg-gray-300'}`}>
-        <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${checked ? 'left-[22px]' : 'left-0.5'}`} />
-      </span>
-      {label}
-    </button>
   );
 }

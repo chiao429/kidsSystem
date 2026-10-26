@@ -29,6 +29,8 @@ export interface EventRules {
   allowCourseChange?: boolean;
   /** 家長頁不顯示「活動資訊」（時間、地點、報到／繳費）；未設定＝顯示 */
   hideEventInfo?: boolean;
+  /** 家長頁不顯示的區塊：`panel:<課程分組名稱>`、`supplement`（補充資訊）、`signature`（簽名檔） */
+  hiddenSections?: string[];
 }
 
 export function parseRules(json: string | undefined | null): EventRules {

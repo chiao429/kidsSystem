@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { requireSession } from '@kids/auth/next';
-import { EventStatus, EventVersion, GROUP_TYPES, parseCoursePanels, type EventRules, type GroupType } from '@kids/schema';
+import { EventStatus, EventVersion, GROUP_TYPES, parseCoursePanels, parseRules, type EventRules, type GroupType } from '@kids/schema';
 import type { FormResult } from '@kids/ui/client';
 import { sanitizeRichText } from '@kids/ui/rich-text';
 import { dataBackend, extractSheetIdFromUrl } from '@kids/sheets-core';
@@ -130,7 +130,9 @@ export interface EventInfoInput {
 /** 時間與地點：編輯時自動儲存；存成家長看到的文字，顯示與否存在報名規則 */
 export async function saveEventInfo(eventId: string, input: EventInfoInput): Promise<{ error?: string; message?: string }> {
   const session = requireSession({ permission: 'admin', eventId });
-  const event = await getEvent(eventId);
+  const row = await events().findById(eventId, { fresh: true });
+  if (!row) return { error: '找不到活動' };
+  const event = { ...row, rules: parseRules(row.報名規則) };
   const s = (v: unknown) => String(v ?? '').trim().slice(0, 100);
   const date = s(input.date);
   const endDate = s(input.endDate);
@@ -150,6 +152,25 @@ export async function saveEventInfo(eventId: string, input: EventInfoInput): Pro
   await writeLog(event.活動ID, session, '更新時間與地點', eventId, [changes.活動時間, changes.地點, changes.報到時間, input.show ? '' : '家長頁不顯示'].filter(Boolean).join('｜'));
   revalidatePath(`/events/${eventId}/description`);
   return { message: '已自動儲存' };
+}
+
+/** 報名頁內容各區塊在家長頁顯示與否（存在報名規則的 hiddenSections） */
+export async function setSectionVisible(eventId: string, section: string, show: boolean): Promise<{ error?: string }> {
+  const session = requireSession({ permission: 'admin', eventId });
+  const key = String(section ?? '').trim().slice(0, 100);
+  if (!/^(panel:.+|supplement|signature)$/.test(key)) return { error: '無效的區塊' };
+  // 讀最新的報名規則（不用快取），連續切換多個開關時才不會互相蓋掉
+  const row = await events().findById(eventId, { fresh: true });
+  if (!row) return { error: '找不到活動' };
+  const event = { ...row, rules: parseRules(row.報名規則) };
+  const hidden = new Set(event.rules.hiddenSections ?? []);
+  if (show) hidden.delete(key);
+  else hidden.add(key);
+  const rules: EventRules = { ...event.rules, hiddenSections: hidden.size ? [...hidden] : undefined };
+  await events().updateByIds([{ id: eventId, changes: { 報名規則: JSON.stringify(rules) } }]);
+  await writeLog(event.活動ID, session, show ? '家長頁顯示區塊' : '家長頁隱藏區塊', eventId, key);
+  revalidatePath(`/events/${eventId}/description`);
+  return {};
 }
 
 /** 報名頁內容：各課程分組卡片的對象與內容（表單以序號對應分組名稱） */

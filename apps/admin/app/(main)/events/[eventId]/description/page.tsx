@@ -6,6 +6,7 @@ import { requireSession } from '@kids/auth/next';
 import { EventStatus, GroupType, courseGroupNames, groupsOfType, parseCoursePanels } from '@kids/schema';
 import { DescriptionEditor } from '@/components/DescriptionEditor';
 import { EventInfoForm } from '@/components/EventInfoForm';
+import { SectionToggle } from '@/components/SectionToggle';
 import { saveCoursePanels } from '@/lib/event-actions';
 import { CHECKIN_PRESETS, CHECKIN_SUFFIX, COURSE_PANEL_DEFAULTS, OTHER, TIME_PRESETS, VENUE_PRESETS, dateLabel, parseDated } from '@/lib/event-info';
 import { groups } from '@/lib/tables';
@@ -25,6 +26,8 @@ export default async function EventDescriptionPage({ params }: { params: { event
   if (!time.date) time.date = event.開始日期;
   if (!checkin.date) checkin.date = event.開始日期;
   if (!event.報到時間) checkin.suffix = CHECKIN_SUFFIX;
+  // 家長頁隱藏的區塊（課程分組、補充資訊、簽名檔）
+  const hidden = new Set(event.rules.hiddenSections ?? []);
   const venuePreset = !event.地點 || (VENUE_PRESETS as readonly string[]).includes(event.地點);
   // 課程分組卡片：依課程的「課程分組」產生；標題日期與活動資訊共用
   const courses = groupsOfType(allGroups, GroupType.Course);
@@ -50,10 +53,13 @@ export default async function EventDescriptionPage({ params }: { params: { event
               return (
                 <section key={name} className="space-y-3 rounded-2xl border border-gray-200 p-4">
                   <input type="hidden" name={`panelGroup-${i}`} value={name} />
-                  <h3 className="font-bold">
-                    ★【{panelDate}
-                    {name}】{!saved[name] && COURSE_PANEL_DEFAULTS[name] && <span className="ml-2 text-xs font-normal text-amber-600">已帶入預設文字，儲存後生效</span>}
-                  </h3>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="font-bold">
+                      ★【{panelDate}
+                      {name}】{!saved[name] && COURSE_PANEL_DEFAULTS[name] && <span className="ml-2 text-xs font-normal text-amber-600">已帶入預設文字，儲存後生效</span>}
+                    </h3>
+                    <SectionToggle eventId={params.eventId} section={`panel:${name}`} initial={!hidden.has(`panel:${name}`)} />
+                  </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <Field label="對象">
                       <Input name={`panelAudience-${i}`} defaultValue={text.對象} />
@@ -94,16 +100,24 @@ export default async function EventDescriptionPage({ params }: { params: { event
         </Card>
       )}
       {/* 家長報名頁在統一入口的根路徑（registration），跨系統用原生連結 */}
-      <DescriptionEditor eventId={params.eventId} initial={event.活動說明} previewUrl={`/e/${event.活動ID}`} />
+      <DescriptionEditor
+        eventId={params.eventId}
+        initial={event.活動說明}
+        previewUrl={`/e/${event.活動ID}`}
+        visibility={<SectionToggle eventId={params.eventId} section="supplement" initial={!hidden.has('supplement')} />}
+      />
 
       <Card
         title="簽名檔"
         actions={
-          session.scope === 'all' && (
-            <Link href={current ? `/signatures/${current.簽名檔ID}` : '/signatures'} className="text-sm text-[#315bc7] underline">
-              {current ? '編輯這個簽名檔' : '管理簽名檔'}
-            </Link>
-          )
+          <div className="flex flex-wrap items-center gap-3">
+            <SectionToggle eventId={params.eventId} section="signature" initial={!hidden.has('signature')} />
+            {session.permissions.includes('signatures') && (
+              <Link href={current ? `/signatures/${current.簽名檔ID}` : '/signatures'} className="text-sm text-[#315bc7] underline">
+                {current ? '編輯這個簽名檔' : '管理簽名檔'}
+              </Link>
+            )}
+          </div>
         }
       >
         <ActionForm action={setEventSignature.bind(null, params.eventId)} className="mb-4 flex flex-wrap items-end gap-3">
