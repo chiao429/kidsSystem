@@ -24,6 +24,8 @@ export function dateLabel(date: string): string {
 export interface DatedValue {
   /** YYYY-MM-DD；拆不出日期時為空 */
   date: string;
+  /** 連續活動的結束日期（YYYY-MM-DD）；單日活動為空 */
+  endDate?: string;
   /** 預設時段之一，或 OTHER */
   choice: string;
   /** 選「其他」時輸入的文字 */
@@ -37,23 +39,38 @@ export interface DatedValue {
  * 年份取自活動開始日期（顯示格式沒有年份）。
  */
 export function parseDated(value: string, presets: readonly string[], year: string, withSuffix = false): DatedValue {
-  const m = value.trim().match(/^(\d{1,2})\/(\d{1,2})\([日一二三四五六]\)\s*(.*)$/);
-  let rest = m ? m[3] : value.trim();
+  // 單日「10/18(日)上午…」或連續「10/18(日)~10/20(二)上午…」
+  const m = value.trim().match(/^(\d{1,2})\/(\d{1,2})\([日一二三四五六]\)(?:~(\d{1,2})\/(\d{1,2})\([日一二三四五六]\))?\s*(.*)$/);
+  let rest = m ? m[5] : value.trim();
   let suffix = '';
   if (withSuffix) {
     const s = rest.match(/^(.*?)(\([^()]*\))$/);
     if (s) [, rest, suffix] = s;
   }
-  const date = m && /^\d{4}$/.test(year) ? `${year}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}` : '';
+  const ymd = (mm: string, dd: string) => `${year}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+  const ok = m && /^\d{4}$/.test(year);
+  const date = ok ? ymd(m[1], m[2]) : '';
+  // 結束月份比開始小表示跨年
+  const endDate = ok && m[3] ? (Number(m[3]) < Number(m[1]) ? `${Number(year) + 1}` : year) + `-${m[3].padStart(2, '0')}-${m[4].padStart(2, '0')}` : '';
   const choice = !rest ? presets[0] : presets.includes(rest) ? rest : OTHER;
-  return { date, choice, other: choice === OTHER ? rest : '', suffix };
+  return { date, endDate, choice, other: choice === OTHER ? rest : '', suffix };
 }
 
 /** 表單值組回家長看到的文字；時段沒填就回傳空字串（家長頁不顯示這一行） */
-export function formatDated(date: string, time: string, suffix = ''): string {
+export function formatDated(date: string, time: string, suffix = '', endDate = ''): string {
   const t = time.trim();
   if (!t) return '';
-  return `${dateLabel(date)}${t}${suffix.trim()}`;
+  const range = endDate && endDate !== date && dateLabel(endDate) ? `~${dateLabel(endDate)}` : '';
+  return `${dateLabel(date)}${range}${t}${suffix.trim()}`;
+}
+
+/** 新活動預設的時間與地點（活動日期＝開始日期，時段與地點取第一個預設） */
+export function defaultEventInfo(startDate: string) {
+  return {
+    活動時間: formatDated(startDate, TIME_PRESETS[0]),
+    地點: VENUE_PRESETS[0],
+    報到時間: formatDated(startDate, CHECKIN_PRESETS[0], CHECKIN_SUFFIX),
+  };
 }
 
 /** 課程分組卡片的預設對象與內容（尚未儲存過的分組會先帶入，可再修改） */

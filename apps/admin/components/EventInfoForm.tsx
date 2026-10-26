@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Field, Input } from '@kids/ui';
-import { ActionForm, SubmitButton, type FormResult } from '@kids/ui/client';
+import { saveEventInfo } from '@/lib/event-actions';
 import { CHECKIN_PRESETS, OTHER, TIME_PRESETS, VENUE_PRESETS, formatDated, type DatedValue } from '@/lib/event-info';
 
 /** 一組單選（預設選項＋其他），選「其他」時才可輸入 */
@@ -47,72 +47,134 @@ function Choices({
   );
 }
 
-/** 活動說明分頁的「時間與地點」：時間、地點、活動報到／繳費時間 */
+/**
+ * 報名頁內容分頁的「時間與地點」：時間（可設為連續活動）、地點、活動報到／繳費時間。
+ * 修改後自動儲存，家長頁直接套用；「在家長頁顯示」關閉時家長頁不顯示活動資訊。
+ */
 export function EventInfoForm({
-  action,
+  eventId,
   time,
   venue,
   checkin,
+  show: initialShow,
+  neverSaved,
 }: {
-  action: (state: FormResult, formData: FormData) => Promise<FormResult>;
+  eventId: string;
   time: DatedValue;
   venue: { choice: string; other: string };
   checkin: DatedValue;
+  show: boolean;
+  /** 這場活動還沒有設定過時間與地點：進來就把預設值存起來，家長頁直接看得到 */
+  neverSaved: boolean;
 }) {
   const [t, setT] = useState(time);
   const [v, setV] = useState(venue);
   const [c, setC] = useState(checkin);
+  const [show, setShow] = useState(initialShow);
+  const [multiDay, setMultiDay] = useState(!!time.endDate);
+  const [status, setStatus] = useState<{ tone: 'ok' | 'error' | 'saving'; text: string } | null>(null);
   const pick = (x: { choice: string; other: string }) => (x.choice === OTHER ? x.other : x.choice);
+  const endDate = multiDay ? t.endDate ?? '' : '';
   const preview = [
-    ['時間', formatDated(t.date, pick(t))],
+    ['時間', formatDated(t.date, pick(t), '', endDate)],
     ['地點', pick(v).trim()],
     ['活動報到/繳費時間', formatDated(c.date, pick(c), c.suffix)],
   ].filter(([, text]) => text);
 
+  // 自動儲存：停止編輯 0.6 秒後送出（第一次進來只有「從未設定」時才存預設值）
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      if (!neverSaved) return;
+    }
+    setStatus({ tone: 'saving', text: '儲存中…' });
+    const timer = setTimeout(async () => {
+      const res = await saveEventInfo(eventId, {
+        date: t.date,
+        endDate,
+        time: pick(t),
+        venue: pick(v),
+        checkinDate: c.date,
+        checkinTime: pick(c),
+        checkinSuffix: c.suffix,
+        show,
+      }).catch(() => ({ error: '儲存失敗，請檢查網路' }));
+      setStatus(res.error ? { tone: 'error', text: res.error } : { tone: 'ok', text: '已自動儲存，家長頁已套用' });
+    }, 600);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [t, v, c, show, multiDay]);
+
   return (
-    <ActionForm action={action} className="space-y-5">
-      <div className="grid gap-3 sm:grid-cols-[12rem_1fr] sm:items-start">
-        <Field label="活動日期">
-          <Input type="date" name="infoDate" value={t.date} onChange={(e) => setT({ ...t, date: e.target.value })} />
-        </Field>
-        <div className="space-y-1">
-          <span className="text-sm font-semibold text-[#4b5565]">時間</span>
-          <Choices name="infoTime" otherName="infoTimeOther" presets={TIME_PRESETS} value={t.choice} other={t.other} placeholder="例如：下午2:00-4:00" onChange={(choice, other) => setT({ ...t, choice, other })} />
-        </div>
-      </div>
-
-      <div className="space-y-1">
-        <span className="text-sm font-semibold text-[#4b5565]">地點</span>
-        <Choices name="venue" otherName="venueOther" presets={VENUE_PRESETS} value={v.choice} other={v.other} placeholder="輸入其他地點" onChange={(choice, other) => setV({ choice, other })} />
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-[12rem_1fr] sm:items-start">
-        <Field label="報到日期">
-          <Input type="date" name="checkinDate" value={c.date} onChange={(e) => setC({ ...c, date: e.target.value })} />
-        </Field>
-        <div className="space-y-2">
-          <span className="text-sm font-semibold text-[#4b5565]">活動報到/繳費時間</span>
-          <Choices name="checkinTime" otherName="checkinTimeOther" presets={CHECKIN_PRESETS} value={c.choice} other={c.other} placeholder="例如：上午08:50~09:00" onChange={(choice, other) => setC({ ...c, choice, other })} />
-          <Field label="後面加上" hint="不需要可以清空">
-            <Input name="checkinSuffix" value={c.suffix} onChange={(e) => setC({ ...c, suffix: e.target.value })} />
-          </Field>
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-dashed border-gray-300 p-4 text-sm">
-        <div className="mb-2 text-xs text-gray-500">家長頁會顯示（在活動說明最上方）：</div>
-        {preview.length ? (
-          preview.map(([label, text]) => (
-            <p key={label} className="font-semibold">
-              {label}：{text}
-            </p>
-          ))
-        ) : (
-          <p className="text-gray-500">尚未設定</p>
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center gap-3">
+        <Toggle checked={show} onChange={setShow} label="在家長頁顯示" />
+        <Toggle checked={multiDay} onChange={setMultiDay} label="連續活動（起訖日期）" />
+        {status && (
+          <span className={`text-sm ${status.tone === 'error' ? 'text-red-600' : status.tone === 'saving' ? 'text-gray-400' : 'text-emerald-700'}`}>{status.text}</span>
         )}
       </div>
 
-      <SubmitButton>儲存時間與地點</SubmitButton>
-    </ActionForm>
+      <div className={`space-y-5 ${show ? '' : 'opacity-50'}`}>
+        <div className={`grid gap-3 sm:items-start ${multiDay ? 'sm:grid-cols-[12rem_12rem_1fr]' : 'sm:grid-cols-[12rem_1fr]'}`}>
+          <Field label={multiDay ? '開始日期' : '活動日期'}>
+            <Input type="date" value={t.date} onChange={(e) => setT({ ...t, date: e.target.value })} />
+          </Field>
+          {multiDay && (
+            <Field label="結束日期">
+              <Input type="date" min={t.date} value={t.endDate ?? ''} onChange={(e) => setT({ ...t, endDate: e.target.value })} />
+            </Field>
+          )}
+          <div className="space-y-1">
+            <span className="text-sm font-semibold text-[#4b5565]">時間</span>
+            <Choices name="infoTime" otherName="infoTimeOther" presets={TIME_PRESETS} value={t.choice} other={t.other} placeholder="例如：下午2:00-4:00" onChange={(choice, other) => setT({ ...t, choice, other })} />
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <span className="text-sm font-semibold text-[#4b5565]">地點</span>
+          <Choices name="venue" otherName="venueOther" presets={VENUE_PRESETS} value={v.choice} other={v.other} placeholder="輸入其他地點" onChange={(choice, other) => setV({ choice, other })} />
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-[12rem_1fr] sm:items-start">
+          <Field label="報到日期">
+            <Input type="date" value={c.date} onChange={(e) => setC({ ...c, date: e.target.value })} />
+          </Field>
+          <div className="space-y-2">
+            <span className="text-sm font-semibold text-[#4b5565]">活動報到/繳費時間</span>
+            <Choices name="checkinTime" otherName="checkinTimeOther" presets={CHECKIN_PRESETS} value={c.choice} other={c.other} placeholder="例如：上午08:50~09:00" onChange={(choice, other) => setC({ ...c, choice, other })} />
+            <Field label="後面加上" hint="不需要可以清空">
+              <Input value={c.suffix} onChange={(e) => setC({ ...c, suffix: e.target.value })} />
+            </Field>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-dashed border-gray-300 p-4 text-sm">
+          <div className="mb-2 text-xs text-gray-500">{show ? '家長頁會顯示（活動資訊）：' : '目前不在家長頁顯示（開啟「在家長頁顯示」後會顯示）：'}</div>
+          {preview.length ? (
+            preview.map(([label, text]) => (
+              <p key={label} className="font-semibold">
+                {label}：{text}
+              </p>
+            ))
+          ) : (
+            <p className="text-gray-500">尚未設定</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** 開關按鈕 */
+function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+  return (
+    <button type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)} className="flex items-center gap-2 rounded-full border border-gray-200 bg-white py-1 pl-1 pr-3 text-sm font-medium text-gray-700">
+      <span className={`relative h-6 w-11 rounded-full transition ${checked ? 'bg-[#315bc7]' : 'bg-gray-300'}`}>
+        <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${checked ? 'left-[22px]' : 'left-0.5'}`} />
+      </span>
+      {label}
+    </button>
   );
 }

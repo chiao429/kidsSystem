@@ -47,10 +47,6 @@ export default async function EventPage({ params }: { params: { eventId: string 
       {/* 主視覺：大標題＋報名教學；下方依序為活動資訊、課程分組、補充資訊、簽名檔，報名入口懸浮在右下角 */}
       <section className="rb-hero">
         <FitTitle className="rb-hero-title">{event.名稱}</FitTitle>
-        <p className="rb-hero-sub">
-          {event.開始日期}
-          {event.結束日期 && event.結束日期 !== event.開始日期 && ` ~ ${event.結束日期}`}
-        </p>
         <div className="flex flex-wrap items-center justify-center gap-3">
           <GuidedTour steps={tourSteps} />
           {/* 回到首頁的活動清單 */}
@@ -65,9 +61,12 @@ export default async function EventPage({ params }: { params: { eventId: string 
           已經報名了？用手機＋PIN 查詢報到 QR code
         </Link>
       </p>
-      <div data-tour="info">
-        <EventInfoCard rows={infoRows} />
-      </div>
+      {/* 後台「時間與地點」的「在家長頁顯示」關閉時不顯示 */}
+      {!r.hideEventInfo && (
+        <div data-tour="info">
+          <EventInfoCard rows={infoRows} />
+        </div>
+      )}
       {panelNames.map((name, i) => (
         <CoursePanelCard
           tourTarget={i === 0 ? 'courses' : undefined}

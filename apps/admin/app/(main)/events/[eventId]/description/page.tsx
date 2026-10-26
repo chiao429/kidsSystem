@@ -6,7 +6,7 @@ import { requireSession } from '@kids/auth/next';
 import { EventStatus, GroupType, courseGroupNames, groupsOfType, parseCoursePanels } from '@kids/schema';
 import { DescriptionEditor } from '@/components/DescriptionEditor';
 import { EventInfoForm } from '@/components/EventInfoForm';
-import { saveCoursePanels, saveEventInfo } from '@/lib/event-actions';
+import { saveCoursePanels } from '@/lib/event-actions';
 import { CHECKIN_PRESETS, CHECKIN_SUFFIX, COURSE_PANEL_DEFAULTS, OTHER, TIME_PRESETS, VENUE_PRESETS, dateLabel, parseDated } from '@/lib/event-info';
 import { groups } from '@/lib/tables';
 import { getEvent } from '@/lib/events';
@@ -38,7 +38,7 @@ export default async function EventDescriptionPage({ params }: { params: { event
         <Alert tone="blue">目前狀態為「{event.狀態 || EventStatus.Draft}」，預覽家長頁時看得到活動說明，但不會出現報名按鈕；改成「開放報名」後家長才能報名。</Alert>
       )}
       <Card title="時間與地點">
-        <EventInfoForm action={saveEventInfo.bind(null, params.eventId)} time={time} venue={venue} checkin={checkin} />
+        <EventInfoForm eventId={params.eventId} time={time} venue={venue} checkin={checkin} show={!event.rules.hideEventInfo} neverSaved={!event.活動時間 && !event.地點 && !event.報到時間} />
       </Card>
       {panelNames.length > 0 ? (
         <Card title="課程分組">

@@ -1,22 +1,49 @@
-import { Card, Empty, Input, Select, Table } from '@kids/ui';
+import { Alert, Card, Empty, Input, Select, Table } from '@kids/ui';
 import { SubmitButton } from '@kids/ui/client';
-import { GroupRole } from '@kids/schema';
+import { GroupRole, GroupType, LEARNER_ROLES, RegistrationStatus, hasGroupType, type Group } from '@kids/schema';
 import { getEvent } from '@/lib/events';
 import { removeGroupMember, updateTeamMember } from '@/lib/group-actions';
 import { loadGroupState } from '@/lib/groups';
+import { accounts, registrations } from '@/lib/tables';
+import { GroupLeaders, TeamSettings } from '@/components/GroupLeaders';
 
+/** 小隊分頁（與課程完全分開）：小隊設定、小隊長、隊員調整 */
 export default async function TeamsPage({ params }: { params: { eventId: string } }) {
   const event = await getEvent(params.eventId);
-  const state = await loadGroupState(event.活動ID);
+  const [state, regs, accs] = await Promise.all([loadGroupState(event.活動ID), registrations(event.活動ID).all(), accounts().all()]);
   const teams = state.teams;
+  const active = new Set(regs.filter((r) => r.狀態 !== RegistrationStatus.Cancelled).map((r) => r.報名ID));
+  const countOf = (g: Group) =>
+    state.members.filter((m) => m.分組ID === g.分組ID && LEARNER_ROLES.includes(m.角色) && (!m.報名ID || active.has(m.報名ID))).length;
+  const leadersOf = (g: Group) => state.members.filter((m) => m.分組ID === g.分組ID && !LEARNER_ROLES.includes(m.角色));
+  const notice = (
+    <>
+      {!hasGroupType(event.rules, GroupType.Team) && <Alert tone="amber">此活動尚未啟用「小隊」，到「設定」→「進階設定」的「使用的分組」勾選後，報名、報到與點名才會使用。</Alert>}
+      <Alert tone="blue">
+        新增小隊與自動分隊請到{' '}
+        <a href={`/data-tools/e/${params.eventId}`} className="underline">
+          分組分隊
+        </a>{' '}
+        系統；這裡可以修改小隊設定、指派小隊長與調整隊員。
+      </Alert>
+    </>
+  );
   if (teams.length === 0) {
     return (
-      <Card>
-        <Empty>尚未建立小隊（由資料整理系統分隊後即可在此調整）</Empty>
-      </Card>
+      <>
+        {notice}
+        <Card>
+          <Empty>尚未建立小隊（由分組分隊系統分隊後即可在此調整）</Empty>
+        </Card>
+      </>
     );
   }
   return (
+    <>
+    {notice}
+    <TeamSettings eventId={params.eventId} list={teams} countOf={countOf} />
+    <GroupLeaders eventId={params.eventId} type={GroupType.Team} list={teams} leadersOf={leadersOf} accs={accs} />
+    <h2 className="text-lg font-bold">隊員</h2>
     <div className="grid gap-4 lg:grid-cols-2">
       {teams.map((t) => {
         const rows = state.members.filter((m) => m.分組ID === t.分組ID);
@@ -63,5 +90,6 @@ export default async function TeamsPage({ params }: { params: { eventId: string 
         ))}
       </datalist>
     </div>
+    </>
   );
 }

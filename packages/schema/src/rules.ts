@@ -27,6 +27,8 @@ export interface EventRules {
   allowOnSiteCourseRegistration?: boolean;
   /** 家長報名後可在報名期間內自行修改課程；未設定＝不可修改（送出前會提醒家長） */
   allowCourseChange?: boolean;
+  /** 家長頁不顯示「活動資訊」（時間、地點、報到／繳費）；未設定＝顯示 */
+  hideEventInfo?: boolean;
 }
 
 export function parseRules(json: string | undefined | null): EventRules {

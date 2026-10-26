@@ -11,7 +11,7 @@ import { ensureEventTables, events, registrations } from './tables';
 import { COPIED_EVENT_COLUMNS, loadEventContent, parseTemplate, resolveSignature, writeEventContent, type EventContent } from './event-template';
 import { getEvent, isSheetRequired } from './events';
 import { writeLog } from './log';
-import { OTHER, dateLabel, formatDated } from './event-info';
+import { dateLabel, defaultEventInfo, formatDated } from './event-info';
 
 /**
  * 讀取設定表單：只回傳表單上有的欄位。活動時間、地點、適用對象等舊欄位已不在表單上，
@@ -71,7 +71,9 @@ export async function createEvent(_: FormResult, formData: FormData): Promise<Fo
       ? Object.fromEntries(COPIED_EVENT_COLUMNS.map((c) => [c, template.event[c] ?? '']))
       : {};
   if (template) copied.簽名檔 = await resolveSignature(copied.簽名檔 ?? '');
-  const form = { ...readEventForm(formData, baseRules), ...copied };
+  const base = readEventForm(formData, baseRules);
+  // 新活動（不是複製或範本）先帶入預設的時間與地點，家長頁不用另外儲存就看得到
+  const form = { ...base, ...(source || template ? {} : defaultEventInfo(base.開始日期)), ...copied };
   if (!/^[A-Za-z0-9_-]+$/.test(form.活動ID)) return { error: '活動ID 只能使用英數字、- 與 _' };
   if (!form.名稱 || !form.開始日期) return { error: '請填寫活動名稱與開始日期' };
   if (!form.活動試算表 && isSheetRequired()) return { error: '請在「進階設定」填寫活動試算表連結' };
@@ -112,26 +114,42 @@ export async function updateEvent(eventId: string, _: FormResult, formData: Form
 }
 
 /** 活動說明分頁的「時間與地點」：組成家長看到的文字後存進活動時間、地點、報到時間 */
-export async function saveEventInfo(eventId: string, _: FormResult, formData: FormData): Promise<FormResult> {
+export interface EventInfoInput {
+  date: string;
+  /** 連續活動的結束日期；單日活動為空 */
+  endDate: string;
+  time: string;
+  venue: string;
+  checkinDate: string;
+  checkinTime: string;
+  checkinSuffix: string;
+  /** 在家長頁顯示活動資訊 */
+  show: boolean;
+}
+
+/** 時間與地點：編輯時自動儲存；存成家長看到的文字，顯示與否存在報名規則 */
+export async function saveEventInfo(eventId: string, input: EventInfoInput): Promise<{ error?: string; message?: string }> {
   const session = requireSession({ permission: 'admin', eventId });
   const event = await getEvent(eventId);
-  const s = (k: string) => String(formData.get(k) ?? '').trim().slice(0, 100);
-  // radio 選「其他」時用旁邊輸入框的文字
-  const pick = (choice: string, other: string) => (s(choice) === OTHER ? s(other) : s(choice));
-  const date = s('infoDate');
-  const checkinDate = s('checkinDate');
-  if ((date && !dateLabel(date)) || (checkinDate && !dateLabel(checkinDate))) return { error: '日期格式不正確' };
+  const s = (v: unknown) => String(v ?? '').trim().slice(0, 100);
+  const date = s(input.date);
+  const endDate = s(input.endDate);
+  const checkinDate = s(input.checkinDate);
+  if ((date && !dateLabel(date)) || (endDate && !dateLabel(endDate)) || (checkinDate && !dateLabel(checkinDate))) return { error: '日期格式不正確' };
+  if (endDate && date && endDate < date) return { error: '結束日期不可早於開始日期' };
+  const rules: EventRules = { ...event.rules, hideEventInfo: input.show ? undefined : true };
   const changes = {
-    活動時間: formatDated(date, pick('infoTime', 'infoTimeOther')),
-    地點: pick('venue', 'venueOther'),
-    報到時間: formatDated(checkinDate, pick('checkinTime', 'checkinTimeOther'), s('checkinSuffix')),
+    活動時間: formatDated(date, s(input.time), '', endDate),
+    地點: s(input.venue),
+    報到時間: formatDated(checkinDate, s(input.checkinTime), s(input.checkinSuffix)),
+    報名規則: JSON.stringify(rules),
   };
   if (!date && changes.活動時間) return { error: '請選擇活動日期' };
   if (!checkinDate && changes.報到時間) return { error: '請選擇報到日期' };
   await events().updateByIds([{ id: eventId, changes }]);
-  await writeLog(event.活動ID, session, '更新時間與地點', eventId, [changes.活動時間, changes.地點, changes.報到時間].filter(Boolean).join('｜'));
+  await writeLog(event.活動ID, session, '更新時間與地點', eventId, [changes.活動時間, changes.地點, changes.報到時間, input.show ? '' : '家長頁不顯示'].filter(Boolean).join('｜'));
   revalidatePath(`/events/${eventId}/description`);
-  return { message: '已儲存' };
+  return { message: '已自動儲存' };
 }
 
 /** 報名頁內容：各課程分組卡片的對象與內容（表單以序號對應分組名稱） */
