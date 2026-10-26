@@ -51,7 +51,13 @@ export default async function EventPage({ params }: { params: { eventId: string 
           {event.開始日期}
           {event.結束日期 && event.結束日期 !== event.開始日期 && ` ~ ${event.結束日期}`}
         </p>
-        <GuidedTour steps={tourSteps} />
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <GuidedTour steps={tourSteps} />
+          {/* 回到首頁的活動清單 */}
+          <Link href="/" className="rb-tour-start">
+            <span aria-hidden>📋</span> 全部活動
+          </Link>
+        </div>
       </section>
       {!w.open && <Alert tone="amber">{w.reason}</Alert>}
       <p className="text-center text-sm">
