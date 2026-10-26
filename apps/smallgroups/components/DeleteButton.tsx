@@ -30,7 +30,9 @@ export function DeleteButton({
     });
   return (
     <>
+      {/* type="button"：放在表單裡（例如小組設定的全部儲存）也不會送出表單 */}
       <Button
+        type="button"
         size="sm"
         variant="ghost"
         className="text-red-600"
@@ -52,10 +54,10 @@ export function DeleteButton({
               </div>
             )}
             <div className="mt-6 flex justify-end gap-2">
-              <Button variant="secondary" autoFocus onClick={() => setOpen(false)}>
+              <Button type="button" variant="secondary" autoFocus onClick={() => setOpen(false)}>
                 返回
               </Button>
-              <Button variant="danger" onClick={run} disabled={pending}>
+              <Button type="button" variant="danger" onClick={run} disabled={pending}>
                 {pending ? '刪除中…' : '確認刪除'}
               </Button>
             </div>

@@ -136,6 +136,12 @@ export const withBase = (path: string) => `${basePath()}${path}`;
 /** 家長端（apps/parents）的網址：家長頁獨立部署，其他系統連過去要用完整網址；家長端自己用相對路徑 */
 export const parentUrl = (path: string) => `${(process.env.NEXT_PUBLIC_PARENT_URL ?? '').replace(/\/+$/, '')}${path}`;
 
+// 放在這裡而不是 nav-group（'use client'）：伺服器元件從 client 模組匯入的常數拿不到實際值
+/** localStorage 記住「固定在左側」；預設固定（只在寬螢幕生效） */
+export const MENU_PIN_KEY = 'kids_menu_pinned';
+/** 在畫面內容出現前先設定 html[data-menu-pinned]，避免載入時選單閃一下（放在 Shell 最前面） */
+export const MENU_PIN_SCRIPT = `try{if(localStorage.getItem('${MENU_PIN_KEY}')!=='0')document.documentElement.setAttribute('data-menu-pinned','')}catch(e){document.documentElement.setAttribute('data-menu-pinned','')}`;
+
 /** 系統共用外框；brand 為該系統主色（CSS 色碼） */
 export function Shell({
   title,
@@ -161,12 +167,14 @@ export function Shell({
   children: ReactNode;
 }) {
   return (
-    <div style={{ ['--brand' as string]: brand }} className="min-h-screen bg-[#f1f3f7]">
+    // 左側選單固定時（寬螢幕），內容往右讓出選單寬度
+    <div style={{ ['--brand' as string]: brand }} className="min-h-screen bg-[#f1f3f7] lg:[html[data-menu-pinned]_&]:pl-72">
+      <script dangerouslySetInnerHTML={{ __html: MENU_PIN_SCRIPT }} />
       {/* 直向排列、至少一個畫面高：內容不多時頁尾也會在畫面最底下 */}
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 bg-[#17294d] text-white shadow-sm">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-4 sm:px-6">
-            {/* 選單一律收在漢堡按鈕裡（桌機、手機相同），點開由左側滑出 */}
+            {/* 漢堡選單：點開由左側滑出；寬螢幕可固定在左側一直顯示 */}
             <MobileMenu nav={[...nav, ...footerNav]} systems={systems} user={user} logoutAction={logoutAction} title={title} />
             <a href={withBase('/')} className="text-lg font-extrabold tracking-tight">{title}</a>
             {user && (

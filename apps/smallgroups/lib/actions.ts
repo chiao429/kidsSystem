@@ -102,21 +102,30 @@ export async function removeMember(小組ID: string, 成員ID: string): Promise<
 }
 
 /** 小組設定：新增或修改小組（名稱、基地、排序、負責人、狀態、說明） */
-export async function saveGroup(小組ID: string, _: FormResult, formData: FormData): Promise<FormResult> {
-  requireSession({ permission: 'smallgroup-settings' });
-  const s = (k: string) => clean(formData.get(k), 200);
+/** 讀出一個小組的欄位；suffix 為同一表單多個小組時的序號（例如 -0） */
+function groupFields(formData: FormData, suffix: string): { fields?: Pick<SmallGroup, '名稱' | '基地' | '排序' | '負責人' | '狀態' | '說明'>; error?: string } {
+  const s = (k: string) => clean(formData.get(k + suffix), 200);
   const 名稱 = s('name');
   if (!名稱) return { error: '請填寫小組名稱' };
   const 基地 = BASES.some((b) => b.short === s('base')) ? s('base') : '';
-  if (!基地) return { error: '請選擇基地' };
-  const fields = {
-    名稱,
-    基地,
-    排序: String(Math.floor(Number(s('order')) || 0)),
-    負責人: formData.getAll('leaders').map((v) => clean(v, 50)).filter(Boolean).join(','),
-    狀態: s('status') === '停用' ? '停用' : '啟用',
-    說明: s('note'),
+  if (!基地) return { error: `「${名稱}」請選擇基地` };
+  return {
+    fields: {
+      名稱,
+      基地,
+      排序: String(Math.floor(Number(s('order')) || 0)),
+      負責人: formData.getAll('leaders' + suffix).map((v) => clean(v, 50)).filter(Boolean).join(','),
+      狀態: s('status') === '停用' ? '停用' : '啟用',
+      說明: s('note'),
+    },
   };
+}
+
+export async function saveGroup(小組ID: string, _: FormResult, formData: FormData): Promise<FormResult> {
+  requireSession({ permission: 'smallgroup-settings' });
+  const { fields, error } = groupFields(formData, '');
+  if (!fields) return { error };
+  const 名稱 = fields.名稱;
   const all = await listGroups();
   if (all.some((g) => g.名稱 === 名稱 && g.小組ID !== 小組ID)) return { error: `已經有「${名稱}」這個小組` };
   await ensureSmallGroupTables();
@@ -125,6 +134,36 @@ export async function saveGroup(小組ID: string, _: FormResult, formData: FormD
   revalidatePath('/settings');
   revalidatePath('/');
   return { message: `已儲存「${名稱}」` };
+}
+
+/** 小組設定一鍵儲存：同一個表單裡的所有既有小組一次更新（欄位名稱帶序號，例如 name-0） */
+export async function saveAllGroups(_: FormResult, formData: FormData): Promise<FormResult> {
+  requireSession({ permission: 'smallgroup-settings' });
+  const count = Math.min(Math.max(Math.floor(Number(formData.get('count')) || 0), 0), 500);
+  const existing = new Map((await listGroups()).map((g) => [g.小組ID, g]));
+  const updates: { id: string; changes: NonNullable<ReturnType<typeof groupFields>['fields']> }[] = [];
+  for (let i = 0; i < count; i++) {
+    const id = clean(formData.get(`id-${i}`), 50);
+    if (!existing.has(id)) continue; // 期間被刪除的小組略過
+    const { fields, error } = groupFields(formData, `-${i}`);
+    if (!fields) return { error: error ?? '資料有誤' };
+    updates.push({ id, changes: fields });
+  }
+  // 名稱不可重複：這次送出的彼此之間，以及沒有在表單裡的小組
+  const names = new Map<string, string>();
+  for (const g of existing.values()) names.set(g.小組ID, g.名稱);
+  for (const u of updates) names.set(u.id, u.changes.名稱);
+  const seen = new Set<string>();
+  for (const name of names.values()) {
+    if (seen.has(name)) return { error: `小組名稱「${name}」重複了，請改成不同的名稱` };
+    seen.add(name);
+  }
+  if (updates.length === 0) return { error: '沒有可以儲存的小組' };
+  await ensureSmallGroupTables();
+  await smallGroups().updateByIds(updates);
+  revalidatePath('/settings');
+  revalidatePath('/');
+  return { message: `已儲存 ${updates.length} 個小組` };
 }
 
 type ImportResult = { error?: string; added?: number; already?: number; problems?: string[] };
