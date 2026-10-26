@@ -11,14 +11,14 @@ export default function LoginPage({ searchParams }: { searchParams: { next?: str
   const next = safeNext(searchParams.next);
   redirectIfLoggedIn('rollcall', next);
   return (
-    <div style={{ ['--brand' as string]: '#d97706' }} className="px-4">
+    <div style={{ ['--brand' as string]: '#d97706' }} className="flex min-h-screen flex-col px-4">
       {searchParams.changed && (
         <div className="mx-auto mt-6 max-w-sm">
           <Alert tone="green">密碼已更新，請用新密碼重新登入</Alert>
         </div>
       )}
       <LoginForm title="點名系統" action={login} next={next} />
-      <BrandFooter />
+      <BrandFooter className="mt-auto" />
     </div>
   );
 }

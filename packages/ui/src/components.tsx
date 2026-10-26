@@ -212,21 +212,19 @@ export function Shell({
           </div>
         )}
       </aside>
-      <div className="min-w-0 flex-1">
+      {/* 直向排列、至少一個畫面高：內容不多時頁尾也會在畫面最底下 */}
+      <div className="flex min-h-screen min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 bg-[#17294d] text-white shadow-sm">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-4 sm:px-6">
             <a href={withBase('/')} className="text-lg font-extrabold tracking-tight lg:hidden">{title}</a>
             <MobileMenu nav={nav} systems={systems} user={user} logoutAction={logoutAction} />
             {user && (
-              <form action={logoutAction} className="ml-auto hidden items-center gap-2 text-sm text-white/75 lg:flex">
-                <span>{user}</span>
-                <a href={withBase('/password')} className="rounded-full px-3 py-1.5 hover:bg-white/15">改密碼</a>
-                <button className="rounded-full px-3 py-1.5 hover:bg-white/15">登出</button>
-              </form>
+              // 改密碼、登出在左側選單（桌機）與漢堡選單（手機），右上角只顯示問候
+              <span className="ml-auto hidden text-sm text-white/80 lg:block">Hi, {user}</span>
             )}
           </div>
         </header>
-        <main className="mx-auto max-w-7xl space-y-5 px-4 py-8 sm:px-6">{children}</main>
+        <main className="mx-auto w-full max-w-7xl flex-1 space-y-5 px-4 py-8 sm:px-6">{children}</main>
         <BrandFooter />
       </div>
     </div>
