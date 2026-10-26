@@ -4,9 +4,11 @@ import { revalidatePath } from 'next/cache';
 import { requireSession } from '@kids/auth/next';
 import { AttendanceStatus, BASES, newId, nowString } from '@kids/schema';
 import type { FormResult } from '@kids/ui/client';
-import { attendanceOn, checkedInOn, getGroup, isDate, kidDirectory, listGroups, rosterOn, today } from './data';
+import { attendanceOn, checkedInOn, getGroup, isDate, kidDirectory, listGroups, rosterOn, today, visibleGroups, type SmallGroup } from './data';
 import type { ImportRow } from './member-sheet';
-import { ensureSmallGroupTables, members, smallGroupAttendance, smallGroupMembers, smallGroups } from './tables';
+
+type KidInfo = { 成員ID: string; 姓名: string; 電話: string; 基地: string };
+import { accounts, ensureSmallGroupTables, members, smallGroupAttendance, smallGroupMembers, smallGroups } from './tables';
 
 const clean = (v: unknown, max = 500) => String(v ?? '').trim().slice(0, max);
 const STATUSES: string[] = ['', ...Object.values(AttendanceStatus)];
@@ -122,31 +124,25 @@ export async function saveGroup(小組ID: string, _: FormResult, formData: FormD
   return { message: `已儲存「${名稱}」` };
 }
 
-/**
- * 匯入組員：每列用成員ID，或姓名＋家長電話（只有姓名時需唯一）找到同基地的孩子並加入小組。
- * 已在其他小組的孩子會換過來；檔案裡沒有的組員不會被移出。回傳加入人數與找不到的列。
- */
-export async function importMembers(小組ID: string, rows: ImportRow[]): Promise<{ error?: string; added?: number; already?: number; problems?: string[] }> {
-  const session = requireSession({ permission: 'smallgroups' });
-  const group = await getGroup(session, 小組ID);
-  if (rows.length > 500) return { error: '一次最多匯入 500 筆' };
-  const kids = [...(await kidDirectory()).values()];
+type ImportResult = { error?: string; added?: number; already?: number; problems?: string[] };
+
+/** 把一批列（附原始列號）匯入指定小組：依成員ID 或姓名＋家長電話找到同基地的孩子 */
+async function importInto(group: SmallGroup, rows: { row: ImportRow; line: number }[], kids: KidInfo[]): Promise<Required<Omit<ImportResult, 'error'>>> {
   const digits = (v: string) => v.replace(/\D/g, '');
   const problems: string[] = [];
   const picked = new Set<string>();
-  rows.forEach((r, i) => {
-    const line = `第 ${i + 2} 列`;
+  for (const { row: r, line } of rows) {
     const 姓名 = clean(r.姓名, 50);
     const 電話 = digits(clean(r.家長電話, 30));
     const id = clean(r.成員ID, 50);
-    if (!id && !姓名) return;
+    if (!id && !姓名) continue;
     const matches = id ? kids.filter((k) => k.成員ID === id) : kids.filter((k) => k.姓名 === 姓名 && (!電話 || digits(k.電話) === 電話));
-    if (matches.length === 0) return problems.push(`${line}（${姓名 || id}）：找不到這位孩子，請確認姓名與家長電話`);
-    if (matches.length > 1) return problems.push(`${line}（${姓名}）：有 ${matches.length} 位同名的孩子，請填家長電話`);
-    const k = matches[0];
-    if (k.基地 !== group.基地) return problems.push(`${line}（${k.姓名}）：是${k.基地}的孩子，不能加入${group.基地}的小組`);
-    picked.add(k.成員ID);
-  });
+    const label = `第 ${line} 列（${姓名 || id}）`;
+    if (matches.length === 0) problems.push(`${label}：找不到這位孩子，請確認姓名與家長電話`);
+    else if (matches.length > 1) problems.push(`${label}：有 ${matches.length} 位同名的孩子，請填家長電話`);
+    else if (matches[0].基地 !== group.基地) problems.push(`${label}：是${matches[0].基地}的孩子，不能加入${group.基地}的「${group.名稱}」`);
+    else picked.add(matches[0].成員ID);
+  }
   const current = new Set((await rosterOn(group.小組ID, today())).map((m) => m.成員ID));
   let added = 0;
   for (const id of picked) {
@@ -157,4 +153,89 @@ export async function importMembers(小組ID: string, rows: ImportRow[]): Promis
   }
   revalidatePath(`/g/${group.小組ID}/members`);
   return { added, already: [...picked].filter((id) => current.has(id)).length, problems };
+}
+
+/**
+ * 匯入組員（單一小組）：已在其他小組的孩子會換過來；檔案裡沒有的組員不會被移出。
+ */
+export async function importMembers(小組ID: string, rows: ImportRow[]): Promise<ImportResult> {
+  const session = requireSession({ permission: 'smallgroups' });
+  const group = await getGroup(session, 小組ID);
+  if (rows.length > 500) return { error: '一次最多匯入 500 筆' };
+  const kids = [...(await kidDirectory()).values()];
+  return importInto(group, rows.map((row, i) => ({ row, line: i + 2 })), kids);
+}
+
+/** 匯入所有小組的組員：每列多一個「小組名稱」，依名稱分到各小組（只能匯入自己看得到的小組） */
+export async function importAllMembers(rows: (ImportRow & { 小組名稱: string })[]): Promise<ImportResult> {
+  const session = requireSession({ permission: 'smallgroups' });
+  if (rows.length > 2000) return { error: '一次最多匯入 2000 筆' };
+  const groups = await visibleGroups(session);
+  const kids = [...(await kidDirectory()).values()];
+  const problems: string[] = [];
+  const byGroup = new Map<string, { row: ImportRow; line: number }[]>();
+  rows.forEach((row, i) => {
+    const name = clean(row.小組名稱, 50);
+    if (!name && !row.姓名 && !row.成員ID) return;
+    const g = groups.find((x) => x.名稱 === name);
+    if (!g) return void problems.push(`第 ${i + 2} 列：找不到小組「${name || '（空白）'}」，請確認名稱與「小組設定」相同`);
+    byGroup.set(g.小組ID, [...(byGroup.get(g.小組ID) ?? []), { row, line: i + 2 }]);
+  });
+  let added = 0;
+  let already = 0;
+  for (const [id, list] of byGroup) {
+    const res = await importInto(groups.find((g) => g.小組ID === id)!, list, kids);
+    added += res.added;
+    already += res.already;
+    problems.push(...res.problems);
+  }
+  revalidatePath('/');
+  return { added, already, problems };
+}
+
+/**
+ * 匯入小組設定：依「小組名稱」新增或更新；負責人填帳號（逗號分隔）。檔案裡沒有的小組不會被刪除或停用。
+ */
+export async function importGroups(rows: Record<string, string>[]): Promise<ImportResult & { updated?: number }> {
+  const session = requireSession({ permission: 'smallgroup-settings' });
+  if (rows.length > 200) return { error: '一次最多匯入 200 個小組' };
+  const existing = await listGroups();
+  const accountIds = new Set((await accounts().all()).map((a) => a.帳號));
+  const problems: string[] = [];
+  let added = 0;
+  let updated = 0;
+  await ensureSmallGroupTables();
+  const now = nowString();
+  for (const [i, r] of rows.entries()) {
+    const line = `第 ${i + 2} 列`;
+    const 名稱 = clean(r.小組名稱, 50);
+    if (!名稱) continue;
+    const 基地 = clean(r.基地, 10).replace(/基地$/, '');
+    if (!BASES.some((b) => b.short === 基地)) {
+      problems.push(`${line}（${名稱}）：基地要填「思麥特」或「夢夢」`);
+      continue;
+    }
+    const leaders = clean(r.負責人帳號, 500).split(/[,，、\s]+/).filter(Boolean);
+    const unknown = leaders.filter((a) => !accountIds.has(a));
+    if (unknown.length) problems.push(`${line}（${名稱}）：找不到帳號 ${unknown.join('、')}，已略過這些負責人`);
+    const fields = {
+      名稱,
+      基地,
+      排序: String(Math.floor(Number(clean(r.排序, 10))) || 0),
+      狀態: clean(r.狀態, 10) === '停用' ? '停用' : '啟用',
+      說明: clean(r.說明, 200),
+      負責人: leaders.filter((a) => accountIds.has(a)).join(','),
+    };
+    const g = existing.find((x) => x.名稱 === 名稱);
+    if (g) {
+      await smallGroups().updateByIds([{ id: g.小組ID, changes: fields }]);
+      updated++;
+    } else {
+      await smallGroups().append([{ 小組ID: newId('小組ID'), ...fields, 建立時間: now }]);
+      added++;
+    }
+  }
+  revalidatePath('/settings');
+  revalidatePath('/');
+  return { added, updated, already: 0, problems };
 }

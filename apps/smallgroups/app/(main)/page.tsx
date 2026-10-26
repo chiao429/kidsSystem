@@ -3,6 +3,7 @@ import { Card, Empty } from '@kids/ui';
 import { requireSession } from '@kids/auth/next';
 import { BASES } from '@kids/schema';
 import { today, visibleGroups } from '@/lib/data';
+import { SheetImport } from '@/components/SheetImport';
 import { smallGroupAttendance, smallGroupMembers } from '@/lib/tables';
 
 /** 小組列表：依基地（思麥特／夢夢）分開，顯示組員數與今天已點名人數 */
@@ -16,6 +17,7 @@ export default async function GroupsPage() {
   return (
     <>
       <h1 className="text-2xl font-bold">小組點名</h1>
+      <SheetImport kind="members" />
       {groups.length === 0 && (
         <Card>
           <Empty>{session.scope === 'own' ? '你還沒有負責的小組，請管理員在「小組設定」把你設為負責人。' : '還沒有小組。'}</Empty>

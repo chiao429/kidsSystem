@@ -4,6 +4,7 @@ import { requireSession } from '@kids/auth/next';
 import { BASES } from '@kids/schema';
 import { saveGroup } from '@/lib/actions';
 import { listGroups, type SmallGroup } from '@/lib/data';
+import { SheetImport } from '@/components/SheetImport';
 import { accounts } from '@/lib/tables';
 
 /** 小組設定（設定檔）：小組名稱、基地、排序、負責人、啟用／停用 */
@@ -14,6 +15,7 @@ export default async function SettingsPage() {
   return (
     <>
       <h1 className="text-2xl font-bold">小組設定</h1>
+      <SheetImport kind="groups" />
       <p className="text-sm text-gray-600">負責人可以點名自己的小組；角色範圍不是「只限自己負責」的帳號可以點所有小組。停用的小組不會出現在點名列表，紀錄都會保留。</p>
       {[...groups, null].map((g) => (
         <Card key={g?.小組ID ?? 'new'} title={g ? <span>{g.名稱} {g.狀態 === '停用' && <Badge tone="gray">停用</Badge>}</span> : '新增小組'}>
