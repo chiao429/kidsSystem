@@ -15,6 +15,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
   // 小組三張表第一次使用時建立（同一程序只做一次）
   await ensureSmallGroupTables();
   const nav: NavItem[] = [{ href: '/', label: '小組點名' }];
+  nav.push({ href: '/report', label: 'LINE 統計' });
   if (session.permissions.includes('smallgroup-settings')) nav.push({ href: '/settings', label: '小組設定' });
   return (
     <Shell title="小組系統" brand="#0f9d77" nav={nav} systems={systemLinksFor(session.permissions, '/groups')} user={session.name} logoutAction={logoutAction}>

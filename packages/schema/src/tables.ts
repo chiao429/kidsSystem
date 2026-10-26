@@ -290,9 +290,20 @@ export const SmallGroupAttendanceTable = defineTable({
   uniqueKeys: [['小組ID', '成員ID', '日期']],
 });
 
+/** 小組每次聚會的人數：線上聚會與個別線上分享由組長填數字（週日的人數由點名計算） */
+export const SmallGroupMeetingTable = defineTable({
+  tab: '小組聚會',
+  key: 'smallGroupMeetings',
+  scope: 'master',
+  idColumn: '小組聚會ID',
+  headers: ['小組聚會ID', '小組ID', '日期', '線上總人數', '線上新朋友', '線上同工', '個別線上分享', '操作者', '時間'],
+  owner: 'smallgroups',
+  uniqueKeys: [['小組ID', '日期']],
+});
+
 export const MASTER_TABLES = [
   HouseholdTable, MemberTable, AccountTable, RoleTable, EventTable, SignatureTable,
-  SmallGroupTable, SmallGroupMemberTable, SmallGroupAttendanceTable,
+  SmallGroupTable, SmallGroupMemberTable, SmallGroupAttendanceTable, SmallGroupMeetingTable,
 ] as const;
 export const EVENT_TABLES = [
   RegistrationTable, CheckInTable, GroupTable, GroupMemberTable, ScheduleTable,

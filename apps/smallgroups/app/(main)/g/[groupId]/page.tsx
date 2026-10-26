@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { requireSession } from '@kids/auth/next';
 import { RollSheet } from '@/components/RollSheet';
 import { attendanceOn, checkedInOn, getGroup, isDate, kidDirectory, rosterOn, today } from '@/lib/data';
-import { smallGroupMembers } from '@/lib/tables';
+import { smallGroupMeetings, smallGroupMembers } from '@/lib/tables';
 
 const shift = (date: string, days: number) => new Date(Date.parse(`${date}T00:00:00Z`) + days * 86400_000).toISOString().slice(0, 10);
 
@@ -11,13 +11,15 @@ export default async function GroupRollPage({ params, searchParams }: { params: 
   const session = requireSession({ permission: 'smallgroups' });
   const group = await getGroup(session, params.groupId);
   const date = isDate(searchParams.date) ? searchParams.date! : today();
-  const [roster, records, arrived, kids, allMembers] = await Promise.all([
+  const [roster, records, arrived, kids, allMembers, meetings] = await Promise.all([
     rosterOn(group.小組ID, date),
     attendanceOn(group.小組ID, date),
     checkedInOn(date),
     kidDirectory(),
     smallGroupMembers().all({ fresh: true }),
+    smallGroupMeetings().all({ fresh: true }),
   ]);
+  const meeting = meetings.find((m) => m.小組ID === group.小組ID && m.日期 === date);
   const arrivedIds = new Set(arrived.map((k) => k.成員ID));
   const recordOf = new Map(records.map((r) => [r.成員ID, r]));
   const rows = roster
@@ -56,7 +58,7 @@ export default async function GroupRollPage({ params, searchParams }: { params: 
           管理組員
         </Link>
       </div>
-      <RollSheet key={date} groupId={group.小組ID} date={date} prev={shift(date, -7)} next={shift(date, 7)} isToday={date === today()} rows={rows} candidates={candidates} />
+      <RollSheet key={date} groupId={group.小組ID} date={date} prev={shift(date, -7)} next={shift(date, 7)} isToday={date === today()} rows={rows} candidates={candidates} staff={group.負責人.split(',').filter(Boolean).length} meeting={{ 線上總人數: meeting?.線上總人數 ?? '', 線上新朋友: meeting?.線上新朋友 ?? '', 線上同工: meeting?.線上同工 ?? '', 個別線上分享: meeting?.個別線上分享 ?? '' }} />
     </>
   );
 }

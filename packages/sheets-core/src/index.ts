@@ -1,7 +1,7 @@
 export { getSheetsClient, extractSheetIdFromUrl } from './client';
 export { cached, invalidate } from './cache';
 export { SheetTable, PermissionError, dataBackend, resolveSheetId } from './table';
-export { getMasterSheetId, isSheetSyncPaused, sheetFeaturesVisible, masterSheetSetting, setMasterSheetId, setSheetSyncPaused, type MasterSheetSetting } from './settings';
+export { getMasterSheetId, getSetting, setSetting, isSheetSyncPaused, sheetFeaturesVisible, masterSheetSetting, setMasterSheetId, setSheetSyncPaused, type MasterSheetSetting } from './settings';
 export type { RowFilter, UpsertResult } from './store';
 
 import { getBackend } from './backend';

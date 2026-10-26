@@ -8,7 +8,10 @@ import { attendanceOn, checkedInOn, getGroup, isDate, kidDirectory, listGroups, 
 import type { ImportRow } from './member-sheet';
 
 type KidInfo = { 成員ID: string; 姓名: string; 電話: string; 基地: string };
-import { accounts, ensureSmallGroupTables, members, smallGroupAttendance, smallGroupMembers, smallGroups } from './tables';
+import { accounts, ensureSmallGroupTables, members, smallGroupAttendance, smallGroupMeetings, smallGroupMembers, smallGroups } from './tables';
+import { buildReport } from './report';
+import { LINE_GROUP_KEY, lineGroupId, pushLineText } from './line';
+import { setSetting } from '@kids/sheets-core';
 
 const clean = (v: unknown, max = 500) => String(v ?? '').trim().slice(0, max);
 const STATUSES: string[] = ['', ...Object.values(AttendanceStatus)];
@@ -238,4 +241,53 @@ export async function importGroups(rows: Record<string, string>[]): Promise<Impo
   revalidatePath('/settings');
   revalidatePath('/');
   return { added, updated, already: 0, problems };
+}
+
+/** 線上聚會與個別線上分享的人數（組長填數字，週日人數由點名計算） */
+export async function saveMeeting(
+  小組ID: string,
+  date: string,
+  fields: { 線上總人數?: string; 線上新朋友?: string; 線上同工?: string; 個別線上分享?: string },
+): Promise<{ error?: string }> {
+  const session = requireSession({ permission: 'smallgroups' });
+  if (!isDate(date)) return { error: '日期格式錯誤' };
+  const group = await getGroup(session, 小組ID);
+  const set: Record<string, string> = { 操作者: session.name, 時間: nowString() };
+  for (const k of ['線上總人數', '線上新朋友', '線上同工', '個別線上分享'] as const) {
+    const v = fields[k];
+    if (v == null) continue;
+    const n = Math.floor(Number(v));
+    if (v !== '' && (!Number.isFinite(n) || n < 0)) return { error: '人數必須是 0 以上的整數' };
+    set[k] = v === '' ? '' : String(n);
+  }
+  await ensureSmallGroupTables();
+  await smallGroupMeetings().upsertByKey(
+    ['小組ID', '日期'],
+    { 小組聚會ID: newId('小組聚會ID'), 小組ID: group.小組ID, 日期: date, 線上總人數: '', 線上新朋友: '', 線上同工: '', 個別線上分享: '', ...set },
+    set,
+  );
+  return {};
+}
+
+/** 立即推送指定日期的統計到 LINE 群組（小組設定權限） */
+export async function pushReportNow(date: string): Promise<{ error?: string; message?: string }> {
+  requireSession({ permission: 'smallgroup-settings' });
+  if (!isDate(date)) return { error: '日期格式錯誤' };
+  const report = await buildReport(date);
+  const res = await pushLineText(await lineGroupId(), report.text);
+  return res.ok ? { message: '已推送到 LINE 群組' } : { error: res.error };
+}
+
+/** 手動設定推播的 LINE 群組 ID（webhook 沒收到時使用） */
+export async function setLineGroup(_: FormResult, formData: FormData): Promise<FormResult> {
+  const session = requireSession({ permission: 'smallgroup-settings' });
+  const id = clean(formData.get('groupId'), 100);
+  if (id && !/^C[0-9a-f]{32}$/.test(id)) return { error: 'LINE 群組 ID 格式是 C 開頭、後面 32 碼英數字' };
+  try {
+    await setSetting(LINE_GROUP_KEY, id, session.name);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : String(e) };
+  }
+  revalidatePath('/report');
+  return { message: id ? '已設定 LINE 群組' : '已清除 LINE 群組' };
 }

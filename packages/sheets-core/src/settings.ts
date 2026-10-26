@@ -74,3 +74,15 @@ export async function sheetFeaturesVisible(): Promise<boolean> {
   if (isMongo()) return !(await isSheetSyncPaused());
   return !process.env.SHEETS_LOCAL_DIR;
 }
+
+/** 一般的系統設定值（MongoDB 模式才能存；其他模式回傳環境變數 fallback 或空字串） */
+export async function getSetting(key: string, envFallback = ''): Promise<string> {
+  if (!isMongo()) return process.env[envFallback] ?? '';
+  return cached(`setting:${key}`, 15_000, async () => (await (await settings()).findOne({ _id: key }))?.value || process.env[envFallback] || '');
+}
+
+export async function setSetting(key: string, value: string, updatedBy: string): Promise<void> {
+  if (!isMongo()) throw new Error('只有 MongoDB 模式可以儲存設定');
+  await (await settings()).updateOne({ _id: key }, { $set: { value, updatedAt: new Date(), updatedBy } }, { upsert: true });
+  invalidate(`setting:${key}`);
+}

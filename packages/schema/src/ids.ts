@@ -15,6 +15,7 @@ const PREFIX = {
   小組ID: 'SM',
   小組成員ID: 'SMM',
   小組點名ID: 'SMA',
+  小組聚會ID: 'SMG',
 } as const;
 
 /** 產生不需中央計數器的唯一 ID，例：R-20261009-K3F9Q2 */

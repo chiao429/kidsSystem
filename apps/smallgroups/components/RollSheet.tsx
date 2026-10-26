@@ -4,7 +4,15 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Alert, Badge, Button, Card, Empty, Input, Textarea } from '@kids/ui';
-import { addMember, saveAttendance, syncCheckIns } from '@/lib/actions';
+import { addMember, saveAttendance, saveMeeting, syncCheckIns } from '@/lib/actions';
+
+type MeetingField = '線上總人數' | '線上新朋友' | '線上同工' | '個別線上分享';
+const MEETING_FIELDS: [MeetingField, string][] = [
+  ['線上總人數', '線上聚會：總人數'],
+  ['線上新朋友', '線上聚會：新朋友'],
+  ['線上同工', '線上聚會：同工'],
+  ['個別線上分享', '個別線上分享：總人數'],
+];
 
 export interface RollRow {
   成員ID: string;
@@ -43,6 +51,8 @@ export function RollSheet({
   isToday,
   rows: initial,
   candidates,
+  staff,
+  meeting,
 }: {
   groupId: string;
   date: string;
@@ -51,6 +61,10 @@ export function RollSheet({
   isToday: boolean;
   rows: RollRow[];
   candidates: Candidate[];
+  /** 週日同工＝小組負責人人數 */
+  staff: number;
+  /** 線上聚會與個別線上分享（組長填數字） */
+  meeting: Record<MeetingField, string>;
 }) {
   const router = useRouter();
   const [rows, setRows] = useState(initial);
@@ -92,6 +106,13 @@ export function RollSheet({
       else router.refresh();
     });
 
+  const [online, setOnline] = useState(meeting);
+  const saveOnline = async (k: MeetingField, v: string) => {
+    if (v === meeting[k] && v === online[k]) return;
+    setError('');
+    const res = await saveMeeting(groupId, date, { [k]: v }).catch(() => ({ error: '儲存失敗，請檢查網路' }));
+    if (res.error) setError(res.error);
+  };
   const count = (v: string) => rows.filter((r) => r.狀態 === v).length;
   const unmarked = rows.filter((r) => !r.狀態).length;
 
@@ -182,6 +203,28 @@ export function RollSheet({
           ))}
         </div>
       )}
+
+      <Card title="線上聚會／個別線上分享">
+        <p className="mb-3 text-sm text-gray-600">
+          週日人數由點名計算（出席＋遲到 {count('出席') + count('遲到')} 位，同工＝負責人 {staff} 位）；線上的人數請直接填數字，離開欄位就會儲存。
+        </p>
+        <div className="grid gap-3 sm:grid-cols-4">
+          {MEETING_FIELDS.map(([k, label]) => (
+            <label key={k} className="block text-xs font-medium text-gray-500">
+              {label}
+              <Input
+                type="number"
+                min={0}
+                inputMode="numeric"
+                className="mt-1"
+                value={online[k]}
+                onChange={(e) => setOnline({ ...online, [k]: e.target.value })}
+                onBlur={(e) => void saveOnline(k, e.target.value)}
+              />
+            </label>
+          ))}
+        </div>
+      </Card>
 
       {candidates.length > 0 && (
         <Card title={`今天有報到、還沒有小組的孩子（${candidates.length}）`}>
