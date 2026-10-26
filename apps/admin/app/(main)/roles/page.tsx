@@ -10,7 +10,9 @@ import { accounts, roles } from '@/lib/tables';
 /** 新增或修改角色；內建角色第一次修改時寫入角色表 */
 async function saveRole(roleId: string, _: FormResult, formData: FormData): Promise<FormResult> {
   'use server';
-  requireSession({ permission: 'roles' });
+  const session = requireSession({ permission: 'roles' });
+  // 不能修改自己所屬角色的權限（系統管理員角色本來就固定全部權限）
+  if (roleId && roleId === session.role && roleId !== ADMIN_ROLE_ID) return { error: '這是你目前所屬的角色，不能修改自己的權限，請由其他管理員調整' };
   const s = (k: string) => String(formData.get(k) ?? '').trim();
   const 名稱 = s('name');
   if (!名稱) return { error: '請填寫角色名稱' };
@@ -43,7 +45,7 @@ async function deleteRole(roleId: string) {
 }
 
 export default async function RolesPage() {
-  requireSession({ permission: 'roles' });
+  const session = requireSession({ permission: 'roles' });
   const [roleRows, accountRows] = await Promise.all([roles().all(), accounts().all()]);
   const list = [...resolveRoles(roleRows).values()];
   const noteOf = (id: string) => roleRows.find((r) => r.角色ID === id)?.說明 ?? DEFAULT_ROLES.find((r) => r.角色ID === id)?.說明 ?? '';
@@ -55,6 +57,9 @@ export default async function RolesPage() {
       </p>
       {[...list, null].map((r) => {
         const isAdmin = r?.id === ADMIN_ROLE_ID;
+        // 自己所屬的角色：只能看，不能改
+        const isSelf = !!r && r.id === session.role;
+        const locked = isAdmin || isSelf;
         const count = r ? accountRows.filter((a) => a.角色 === r.id).length : 0;
         return (
           <Card
@@ -69,10 +74,10 @@ export default async function RolesPage() {
                 </Field>
               )}
               <Field label="名稱" required>
-                <Input name="name" defaultValue={r?.name} required />
+                <Input name="name" defaultValue={r?.name} required readOnly={isSelf && !isAdmin} />
               </Field>
               <Field label="範圍">
-                <Select name="scope" defaultValue={r?.scope ?? RoleScope.Own} disabled={isAdmin}>
+                <Select name="scope" defaultValue={r?.scope ?? RoleScope.Own} disabled={locked}>
                   {Object.values(RoleScope).map((s) => (
                     <option key={s} value={s}>
                       {ROLE_SCOPE_LABEL[s]}
@@ -81,10 +86,12 @@ export default async function RolesPage() {
                 </Select>
               </Field>
               <Field label="說明">
-                <Input name="note" defaultValue={r ? noteOf(r.id) : ''} />
+                <Input name="note" defaultValue={r ? noteOf(r.id) : ''} readOnly={isSelf && !isAdmin} />
               </Field>
               <div className="sm:col-span-3">
-                <div className="mb-1 text-sm font-medium text-gray-700">選單可以顯示的項目{isAdmin && '（系統管理員固定擁有全部權限）'}</div>
+                <div className="mb-1 text-sm font-medium text-gray-700">
+                  選單可以顯示的項目{isAdmin ? '（系統管理員固定擁有全部權限）' : isSelf ? '（這是你目前所屬的角色，不能修改自己的權限）' : ''}
+                </div>
                 <div className="space-y-3">
                   {PERMISSION_GROUPS.map((g) => (
                     <div key={g.label} className="rounded-2xl border border-gray-200 px-4 py-3">
@@ -95,7 +102,7 @@ export default async function RolesPage() {
                       <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2 text-sm">
                         {g.keys.map((p) => (
                           <label key={p} className="flex items-center gap-1.5">
-                            <input type="checkbox" name="permissions" value={p} defaultChecked={r?.permissions.includes(p)} disabled={isAdmin} />
+                            <input type="checkbox" name="permissions" value={p} defaultChecked={r?.permissions.includes(p)} disabled={locked} />
                             {PERMISSIONS[p]}
                           </label>
                         ))}
@@ -105,7 +112,7 @@ export default async function RolesPage() {
                 </div>
               </div>
               <div className="flex gap-2 sm:col-span-3">
-                <SubmitButton size="sm">{r ? '儲存' : '新增角色'}</SubmitButton>
+                {!isSelf || isAdmin ? <SubmitButton size="sm">{r ? '儲存' : '新增角色'}</SubmitButton> : <span className="text-sm text-gray-500">由其他管理員調整這個角色</span>}
               </div>
             </ActionForm>
             {r && !builtIn.has(r.id) && count === 0 && (
