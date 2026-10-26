@@ -3,7 +3,8 @@
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import * as XLSX from 'xlsx';
-import { Alert, Badge, Button, Card, Empty, Input, buttonClass, withBase } from '@kids/ui';
+import { Alert, Badge, Button, Card, Empty, Input, Select, buttonClass, withBase } from '@kids/ui';
+import { gradeRank } from '@kids/schema';
 import { addMember, importMembers, removeMember } from '@/lib/actions';
 import type { ImportRow } from '@/lib/member-sheet';
 
@@ -21,15 +22,20 @@ interface Kid {
 export function MemberPicker({ groupId, kids }: { groupId: string; kids: Kid[] }) {
   const router = useRouter();
   const [q, setQ] = useState('');
+  // 依年級篩選；選了年級時不輸入關鍵字也會列出該年級的孩子
+  const [grade, setGrade] = useState('');
+  const grades = useMemo(() => Array.from(new Set(kids.map((k) => k.年級).filter(Boolean))).sort((a, b) => gradeRank(a) - gradeRank(b)), [kids]);
   const [error, setError] = useState('');
   const [report, setReport] = useState<{ added: number; already: number; problems: string[] } | null>(null);
   const [pending, startTransition] = useTransition();
   const members = kids.filter((k) => k.inGroup);
   const results = useMemo(() => {
     const s = q.trim();
-    if (!s) return [];
-    return kids.filter((k) => !k.inGroup && (k.姓名.includes(s) || k.家長.includes(s) || k.電話.includes(s))).slice(0, 30);
-  }, [kids, q]);
+    if (!s && !grade) return [];
+    return kids
+      .filter((k) => !k.inGroup && (!grade || k.年級 === grade) && (!s || k.姓名.includes(s) || k.家長.includes(s) || k.電話.includes(s)))
+      .slice(0, 60);
+  }, [kids, q, grade]);
   const run = (fn: () => Promise<{ error?: string }>) =>
     startTransition(async () => {
       setError('');
@@ -124,8 +130,18 @@ export function MemberPicker({ groupId, kids }: { groupId: string; kids: Kid[] }
         )}
       </Card>
       <Card title="加入組員">
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="搜尋孩子姓名、家長或電話（只列出同基地的孩子）" />
-        {q.trim() && results.length === 0 && <p className="mt-3 text-sm text-gray-500">沒有符合的孩子</p>}
+        <div className="flex flex-wrap gap-2">
+          <Select value={grade} onChange={(e) => setGrade(e.target.value)} className="w-36" aria-label="年級">
+            <option value="">全部年級</option>
+            {grades.map((g) => (
+              <option key={g} value={g}>
+                {g}
+              </option>
+            ))}
+          </Select>
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="搜尋孩子姓名、家長或電話（只列出同基地的孩子）" className="min-w-[14rem] flex-1" />
+        </div>
+        {(q.trim() || grade) && results.length === 0 && <p className="mt-3 text-sm text-gray-500">沒有符合的孩子</p>}
         <div className="mt-2 divide-y">
           {results.map((k) => (
             <div key={k.成員ID} className="flex flex-wrap items-center gap-2 py-2">
