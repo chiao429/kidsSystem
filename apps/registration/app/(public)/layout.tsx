@@ -29,7 +29,8 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
           </Link>
         </div>
       </header>
-      <main className="relative z-10 mx-auto max-w-2xl space-y-5 px-4 pb-6 pt-2 sm:pt-6">{children}</main>
+      {/* 內容層要高於頁尾：報名教學、確認視窗等浮層在 main 裡面，才不會被頁尾標誌蓋住 */}
+      <main className="relative z-20 mx-auto max-w-2xl space-y-5 px-4 pb-6 pt-2 sm:pt-6">{children}</main>
       <BrandFooter className="relative z-10 pb-28" />
     </div>
   );

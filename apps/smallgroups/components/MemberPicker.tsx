@@ -2,8 +2,10 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Alert, Badge, Button, Card, Empty, Input } from '@kids/ui';
-import { addMember, removeMember } from '@/lib/actions';
+import * as XLSX from 'xlsx';
+import { Alert, Badge, Button, Card, Empty, Input, buttonClass, withBase } from '@kids/ui';
+import { addMember, importMembers, removeMember } from '@/lib/actions';
+import type { ImportRow } from '@/lib/member-sheet';
 
 interface Kid {
   成員ID: string;
@@ -20,6 +22,7 @@ export function MemberPicker({ groupId, kids }: { groupId: string; kids: Kid[] }
   const router = useRouter();
   const [q, setQ] = useState('');
   const [error, setError] = useState('');
+  const [report, setReport] = useState<{ added: number; already: number; problems: string[] } | null>(null);
   const [pending, startTransition] = useTransition();
   const members = kids.filter((k) => k.inGroup);
   const results = useMemo(() => {
@@ -34,9 +37,72 @@ export function MemberPicker({ groupId, kids }: { groupId: string; kids: Kid[] }
       if (res.error) setError(res.error);
       else router.refresh();
     });
+  /** 匯入 Excel／CSV：讀第一個工作表，依「姓名、家長電話、成員ID」欄找孩子 */
+  const importFile = (file: File) =>
+    startTransition(async () => {
+      setError('');
+      setReport(null);
+      try {
+        // CSV 以 UTF-8 文字讀取（直接讀位元組會把中文欄位名稱解錯）；Excel 讀位元組
+        const isCsv = /\.csv$/i.test(file.name);
+        const wb = isCsv ? XLSX.read((await file.text()).replace(/^\uFEFF/, ''), { type: 'string' }) : XLSX.read(await file.arrayBuffer(), { type: 'array' });
+        const data = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[wb.SheetNames[0]], { defval: '', raw: false });
+        // 欄位名稱去掉前後空白，避免「姓名 」之類的打字差異
+        const pick = (r: Record<string, unknown>, key: string) => String(Object.entries(r).find(([k]) => k.trim() === key)?.[1] ?? '').trim();
+        const rows: ImportRow[] = data.map((r) => ({ 姓名: pick(r, '姓名'), 家長電話: pick(r, '家長電話'), 成員ID: pick(r, '成員ID') }));
+        if (!rows.some((r) => r.姓名 || r.成員ID)) return setError('檔案裡沒有資料，請確認第一列是欄位名稱（姓名、家長電話…），可以先下載匯入範例');
+        const res = await importMembers(groupId, rows);
+        if (res.error) return setError(res.error);
+        setReport({ added: res.added ?? 0, already: res.already ?? 0, problems: res.problems ?? [] });
+        router.refresh();
+      } catch {
+        setError('無法讀取這個檔案，請使用 Excel（.xlsx）或 CSV');
+      }
+    });
+
   return (
     <div className="space-y-4">
       {error && <Alert>{error}</Alert>}
+      <Card title="匯入／匯出">
+        <div className="flex flex-wrap items-center gap-2">
+          <a href={withBase(`/g/${groupId}/members/export`)} download className={buttonClass('secondary', 'sm')}>
+            匯出組員
+          </a>
+          <a href={withBase(`/g/${groupId}/members/export?template=1`)} download className={buttonClass('ghost', 'sm')}>
+            下載匯入範例
+          </a>
+          <label className={`${buttonClass('primary', 'sm')} cursor-pointer`}>
+            {pending ? '匯入中…' : '匯入 Excel／CSV'}
+            <input
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              className="hidden"
+              disabled={pending}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.target.value = '';
+                if (f) importFile(f);
+              }}
+            />
+          </label>
+        </div>
+        <p className="mt-2 text-xs text-gray-500">依「姓名＋家長電話」或「成員ID」找到家庭資料裡的孩子加入；已在其他小組的會換過來，檔案裡沒有的組員不會被移出。</p>
+        {report && (
+          <div className="mt-3 space-y-2">
+            <Alert tone={report.problems.length ? 'amber' : 'green'}>
+              新加入 {report.added} 位{report.already > 0 && `，${report.already} 位原本就在小組`}
+              {report.problems.length > 0 && `，${report.problems.length} 筆無法匯入`}
+            </Alert>
+            {report.problems.length > 0 && (
+              <ul className="list-inside list-disc text-sm text-gray-700">
+                {report.problems.map((p) => (
+                  <li key={p}>{p}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </Card>
       <Card title={`組員（${members.length}）`}>
         {members.length === 0 ? (
           <Empty>還沒有組員</Empty>

@@ -4,7 +4,8 @@ import { revalidatePath } from 'next/cache';
 import { requireSession } from '@kids/auth/next';
 import { AttendanceStatus, BASES, newId, nowString } from '@kids/schema';
 import type { FormResult } from '@kids/ui/client';
-import { attendanceOn, checkedInOn, getGroup, isDate, listGroups, rosterOn, today } from './data';
+import { attendanceOn, checkedInOn, getGroup, isDate, kidDirectory, listGroups, rosterOn, today } from './data';
+import type { ImportRow } from './member-sheet';
 import { ensureSmallGroupTables, members, smallGroupAttendance, smallGroupMembers, smallGroups } from './tables';
 
 const clean = (v: unknown, max = 500) => String(v ?? '').trim().slice(0, max);
@@ -119,4 +120,41 @@ export async function saveGroup(小組ID: string, _: FormResult, formData: FormD
   revalidatePath('/settings');
   revalidatePath('/');
   return { message: `已儲存「${名稱}」` };
+}
+
+/**
+ * 匯入組員：每列用成員ID，或姓名＋家長電話（只有姓名時需唯一）找到同基地的孩子並加入小組。
+ * 已在其他小組的孩子會換過來；檔案裡沒有的組員不會被移出。回傳加入人數與找不到的列。
+ */
+export async function importMembers(小組ID: string, rows: ImportRow[]): Promise<{ error?: string; added?: number; already?: number; problems?: string[] }> {
+  const session = requireSession({ permission: 'smallgroups' });
+  const group = await getGroup(session, 小組ID);
+  if (rows.length > 500) return { error: '一次最多匯入 500 筆' };
+  const kids = [...(await kidDirectory()).values()];
+  const digits = (v: string) => v.replace(/\D/g, '');
+  const problems: string[] = [];
+  const picked = new Set<string>();
+  rows.forEach((r, i) => {
+    const line = `第 ${i + 2} 列`;
+    const 姓名 = clean(r.姓名, 50);
+    const 電話 = digits(clean(r.家長電話, 30));
+    const id = clean(r.成員ID, 50);
+    if (!id && !姓名) return;
+    const matches = id ? kids.filter((k) => k.成員ID === id) : kids.filter((k) => k.姓名 === 姓名 && (!電話 || digits(k.電話) === 電話));
+    if (matches.length === 0) return problems.push(`${line}（${姓名 || id}）：找不到這位孩子，請確認姓名與家長電話`);
+    if (matches.length > 1) return problems.push(`${line}（${姓名}）：有 ${matches.length} 位同名的孩子，請填家長電話`);
+    const k = matches[0];
+    if (k.基地 !== group.基地) return problems.push(`${line}（${k.姓名}）：是${k.基地}的孩子，不能加入${group.基地}的小組`);
+    picked.add(k.成員ID);
+  });
+  const current = new Set((await rosterOn(group.小組ID, today())).map((m) => m.成員ID));
+  let added = 0;
+  for (const id of picked) {
+    if (current.has(id)) continue;
+    const res = await addMember(group.小組ID, id, { 來源: '匯入' });
+    if (res.error) problems.push(res.error);
+    else added++;
+  }
+  revalidatePath(`/g/${group.小組ID}/members`);
+  return { added, already: [...picked].filter((id) => current.has(id)).length, problems };
 }

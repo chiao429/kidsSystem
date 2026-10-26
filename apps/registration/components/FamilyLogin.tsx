@@ -53,7 +53,7 @@ export function FamilyLogin({ remembered, onVerified }: { remembered?: { name: s
           <p className="text-sm text-gray-700">
             這台裝置記得 <span className="font-semibold">{remembered.name}</span>（{remembered.phone}）的家庭資料。
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2" data-tour="login-remembered">
             <Button onClick={onVerified}>以這個家庭繼續報名</Button>
             <Button
               variant="secondary"
@@ -94,14 +94,18 @@ export function FamilyLogin({ remembered, onVerified }: { remembered?: { name: s
               run(() => familyLogin(phone, pin, remember));
             }}
           >
-            <Field label="家長手機號碼" required>
-              <Input inputMode="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required />
-            </Field>
-            <Field label="PIN（4 位數字）" hint="初次報名時設定的 PIN" required>
-              <Input {...pinInput} value={pin} onChange={(e) => setPin(digits(e.target.value))} required />
-            </Field>
-            {rememberBox}
-            <div className="flex flex-wrap items-center gap-3">
+            <div data-tour="login-phone">
+              <Field label="家長手機號碼" required>
+                <Input inputMode="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required />
+              </Field>
+            </div>
+            <div data-tour="login-pin">
+              <Field label="PIN（4 位數字）" hint="初次報名時設定的 PIN" required>
+                <Input {...pinInput} value={pin} onChange={(e) => setPin(digits(e.target.value))} required />
+              </Field>
+            </div>
+            <div data-tour="login-remember">{rememberBox}</div>
+            <div className="flex flex-wrap items-center gap-3" data-tour="login-submit">
               <Button type="submit" disabled={pending || !phone || pin.length !== 4}>
                 {pending ? '驗證中…' : '送出'}
               </Button>

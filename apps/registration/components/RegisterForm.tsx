@@ -268,12 +268,14 @@ export function RegisterForm({
         </Alert>
       )}
       {registeredIds.length > 0 && (
+        <div data-tour="done-card">
         <Card title="已完成報名">
           <p className="mb-3 text-sm text-gray-700">此家庭在本活動已有 {registeredIds.length} 位報名，活動當天出示報到 QR code 即可快速報到。</p>
           <Link href={`/e/${eventId}/done?view=qr&ids=${registeredIds.join(',')}`} className={buttonClass('primary')}>
             顯示報到 QR code
           </Link>
         </Card>
+        </div>
       )}
       <div data-tour="contact">
       <Card title="家庭聯絡資料">

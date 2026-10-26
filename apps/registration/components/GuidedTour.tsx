@@ -106,8 +106,9 @@ export function GuidedTour({
             style={
               box
                 ? placeAbove
-                  ? { bottom: window.innerHeight - box.top + 16 }
-                  : { top: Math.min(below, window.innerHeight - 200) }
+                  ? // 目標還在畫面外（捲動未完成）時，說明框貼齊畫面底部，不會跑到畫面外
+                    { bottom: Math.max(16, window.innerHeight - box.top + 16) }
+                  : { top: Math.max(16, Math.min(below, window.innerHeight - 200)) }
                 : { top: '30%' }
             }
           >
