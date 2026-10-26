@@ -12,6 +12,7 @@
     "dev:rollcall": "npm run dev -w @kids/rollcall",
     "dev:admin": "npm run dev -w @kids/admin",
     "dev:data-tools": "npm run dev -w @kids/data-tools",
+    "dev:smallgroups": "npm run dev -w @kids/smallgroups",
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "check:boundaries": "node scripts/check-boundaries.mjs"

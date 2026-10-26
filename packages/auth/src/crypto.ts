@@ -1,5 +1,5 @@
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
-import { upgradeLegacyPermissions, type Permission, type RoleScope } from '@kids/schema';
+import { ADMIN_ROLE_ID, PERMISSION_KEYS, upgradeLegacyPermissions, type Permission, type RoleScope } from '@kids/schema';
 
 export interface Session {
   account: string;
@@ -63,6 +63,8 @@ export function decodeSession(token: string | undefined, secret: string): Sessio
     if (!(session.exp > Date.now() && Array.isArray(session.permissions))) return null;
     // 權限拆分前登入的：換算成新版，已登入的人不用重新登入
     if (session.permissionVersion !== SESSION_PERMISSION_VERSION) session.permissions = upgradeLegacyPermissions(session.permissions, session.scope);
+    // 系統管理員固定擁有全部權限：之後新增的權限（例如新系統）不用重新登入就能使用
+    if (session.role === ADMIN_ROLE_ID) session.permissions = [...PERMISSION_KEYS];
     return session;
   } catch {
     return null;

@@ -49,7 +49,7 @@ jobs:
           else echo "environment=staging" >> "$GITHUB_OUTPUT"; fi
       - id: apps
         run: |
-          ALL='["admin","checkin","data-tools","registration","rollcall"]'
+          ALL='["admin","checkin","data-tools","registration","rollcall","smallgroups"]'
           BEFORE="${{ github.event.before }}"
           if [ "${{ github.event_name }}" != "push" ] || [[ "${{ github.ref }}" == refs/tags/* ]] || [ -z "$BEFORE" ] || ! git cat-file -e "$BEFORE" 2>/dev/null; then
             echo "apps=$ALL" >> "$GITHUB_OUTPUT"; exit 0
@@ -101,6 +101,7 @@ jobs:
             echo "checkin=$(url checkin)"
             echo "rollcall=$(url rollcall)"
             echo "datatools=$(url data-tools)"
+            echo "smallgroups=$(url smallgroups)"
             echo "image=${REGION}-docker.pkg.dev/${PROJECT_ID}/kids/${{ matrix.app }}:${{ github.sha }}-${ENV_NAME}"
           } >> "$GITHUB_OUTPUT"
 
@@ -117,6 +118,7 @@ jobs:
             --build-arg CHECKIN_ORIGIN=${{ steps.urls.outputs.checkin }} \
             --build-arg ROLLCALL_ORIGIN=${{ steps.urls.outputs.rollcall }} \
             --build-arg DATA_TOOLS_ORIGIN=${{ steps.urls.outputs.datatools }} \
+            --build-arg SMALLGROUPS_ORIGIN=${{ steps.urls.outputs.smallgroups }} \
             -t ${{ steps.urls.outputs.image }} .
           docker push ${{ steps.urls.outputs.image }}
 

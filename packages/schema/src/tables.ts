@@ -5,7 +5,7 @@
  * owner：唯一可以「新增列」的系統；其他系統只能讀，或只更新 updatableBy 列出的欄位。
  */
 
-export type SystemName = 'registration' | 'checkin' | 'rollcall' | 'admin' | 'data-tools';
+export type SystemName = 'registration' | 'checkin' | 'rollcall' | 'admin' | 'data-tools' | 'smallgroups';
 
 /** 依某欄位的值決定擁有者，例如「類型」= 課程 → admin、registration */
 export interface OwnerByColumn<H extends string = string> {
@@ -253,7 +253,43 @@ export const SignatureTable = defineTable({
   owner: 'admin',
 });
 
-export const MASTER_TABLES = [HouseholdTable, MemberTable, AccountTable, RoleTable, EventTable, SignatureTable] as const;
+// ───────── 小組（長期、跨活動，每次聚會依日期點名） ─────────
+
+/** 小組設定：基地＝思麥特｜夢夢；負責人為帳號（逗號分隔，同工只看得到自己負責的小組）；狀態＝啟用｜停用 */
+export const SmallGroupTable = defineTable({
+  tab: '小組',
+  key: 'smallGroups',
+  scope: 'master',
+  idColumn: '小組ID',
+  headers: ['小組ID', '名稱', '基地', '排序', '負責人', '狀態', '說明', '建立時間'],
+  owner: 'smallgroups',
+});
+
+/** 小組成員：成員ID 對應家庭資料的孩子；離開日期空白＝目前在組（換組時保留紀錄） */
+export const SmallGroupMemberTable = defineTable({
+  tab: '小組成員',
+  key: 'smallGroupMembers',
+  scope: 'master',
+  idColumn: '小組成員ID',
+  headers: ['小組成員ID', '小組ID', '成員ID', '姓名', '加入日期', '離開日期', '來源'],
+  owner: 'smallgroups',
+});
+
+/** 小組點名：每位孩子每次聚會（日期）一列；狀態空白＝未點；操作者「報到同步」表示由當天報到自動帶入 */
+export const SmallGroupAttendanceTable = defineTable({
+  tab: '小組點名',
+  key: 'smallGroupAttendance',
+  scope: 'master',
+  idColumn: '小組點名ID',
+  headers: ['小組點名ID', '小組ID', '成員ID', '姓名', '日期', '狀態', '當天狀況', '備註', '操作者', '時間'],
+  owner: 'smallgroups',
+  uniqueKeys: [['小組ID', '成員ID', '日期']],
+});
+
+export const MASTER_TABLES = [
+  HouseholdTable, MemberTable, AccountTable, RoleTable, EventTable, SignatureTable,
+  SmallGroupTable, SmallGroupMemberTable, SmallGroupAttendanceTable,
+] as const;
 export const EVENT_TABLES = [
   RegistrationTable, CheckInTable, GroupTable, GroupMemberTable, ScheduleTable,
   AttendanceTable, SurveyTable, SurveyResponseTable, LogTable,

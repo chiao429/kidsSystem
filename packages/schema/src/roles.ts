@@ -12,6 +12,8 @@ export const PERMISSIONS = {
   rollcall: '點名',
   'data-tools': '分組分隊',
   import: '匯入舊資料',
+  smallgroups: '小組點名',
+  'smallgroup-settings': '小組設定',
 } as const;
 export type Permission = keyof typeof PERMISSIONS;
 export const PERMISSION_KEYS = Object.keys(PERMISSIONS) as Permission[];
@@ -20,6 +22,7 @@ export const PERMISSION_KEYS = Object.keys(PERMISSIONS) as Permission[];
 export const PERMISSION_GROUPS: { label: string; hint?: string; keys: Permission[] }[] = [
   { label: '系統管理後台', hint: '「活動」是進入後台的權限，其他項目需一併勾選「活動」', keys: ['admin', 'families', 'signatures', 'accounts', 'roles', 'setup'] },
   { label: '其他系統', keys: ['checkin', 'rollcall', 'data-tools', 'import'] },
+  { label: '小組', hint: '同工只看得到自己負責的小組；「小組設定」可新增小組、指定負責人', keys: ['smallgroups', 'smallgroup-settings'] },
 ];
 
 /** 寫在角色權限欄位裡的版本標記：沒有這個標記的舊角色依舊規則換算（見 resolveRoles） */
@@ -44,8 +47,8 @@ export type RoleRow = RowOf<typeof RoleTable>;
 /** 內建角色（角色表沒有資料時使用；ID 與舊帳號的角色值相同，舊帳號不需修改） */
 export const DEFAULT_ROLES: RoleRow[] = [
   { 角色ID: 'admin', 名稱: '系統管理員', 權限: PERMISSION_KEYS.join(','), 範圍: 'all', 說明: '全部功能，含帳號與角色管理' },
-  { 角色ID: 'manager', 名稱: '領袖', 權限: 'admin,families,data-tools,checkin,rollcall,import,v2', 範圍: 'assigned', 說明: '負責指派活動的後台、分組、報到、點名' },
-  { 角色ID: 'staff', 名稱: '同工', 權限: 'checkin,rollcall,v2', 範圍: 'own', 說明: '報到，以及點名自己負責的分組' },
+  { 角色ID: 'manager', 名稱: '領袖', 權限: 'admin,families,data-tools,checkin,rollcall,import,smallgroups,smallgroup-settings,v2', 範圍: 'assigned', 說明: '負責指派活動的後台、分組、報到、點名' },
+  { 角色ID: 'staff', 名稱: '同工', 權限: 'checkin,rollcall,smallgroups,v2', 範圍: 'own', 說明: '報到，以及點名自己負責的分組' },
 ];
 
 /** 各系統入口（統一入口下的路徑）；選單依帳號權限顯示可以使用的系統，取代原本的「同工入口」頁 */
@@ -55,6 +58,7 @@ export const SYSTEM_LINKS: { href: string; label: string; permission: Permission
   { href: '/rollcall', label: '點名', permission: 'rollcall' },
   { href: '/data-tools', label: '分組分隊', permission: 'data-tools' },
   { href: '/import', label: '匯入舊資料', permission: 'import' },
+  { href: '/groups', label: '小組', permission: 'smallgroups' },
 ];
 
 /** 這個帳號可以使用的其他系統（不含目前所在的系統） */

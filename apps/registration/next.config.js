@@ -9,6 +9,7 @@ const zones = [
   ['/checkin', process.env.CHECKIN_ORIGIN],
   ['/rollcall', process.env.ROLLCALL_ORIGIN],
   ['/data-tools', process.env.DATA_TOOLS_ORIGIN],
+  ['/groups', process.env.SMALLGROUPS_ORIGIN],
 ].filter(([, origin]) => !!origin);
 
 /** @type {import('next').NextConfig} */

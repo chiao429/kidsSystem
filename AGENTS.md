@@ -1,16 +1,17 @@
 # AGENTS.md — 接手前先讀這頁
 
-兒童活動管理平台。npm workspaces monorepo，5 個 Next.js 14（App Router、Server Actions、Tailwind）app ＋ 4 個共用 package。介面與註解一律繁體中文。
+兒童活動管理平台。npm workspaces monorepo，6 個 Next.js 14（App Router、Server Actions、Tailwind）app ＋ 4 個共用 package。介面與註解一律繁體中文。
 
 ## 結構
 
 | 路徑 | 埠 | 做什麼 |
 |---|---|---|
-| `apps/registration` | 3001 | 家長報名、報到 QR、問卷填寫、舊資料匯入。**root zone**：用 rewrites 轉送其他 4 個 app |
+| `apps/registration` | 3001 | 家長報名、報到 QR、問卷填寫、舊資料匯入。**root zone**：用 rewrites 轉送其他 5 個 app |
 | `apps/checkin` | 3002 | 活動當天報到（QR 掃描 / 搜尋）、儀表板 |
 | `apps/rollcall` | 3003 | 小隊／課程依時段點名、統計 |
 | `apps/admin` | 3004 | 活動、帳號、角色、分組、時間表、問卷、報表、Sheet 同步 |
 | `apps/data-tools` | 3005 | 自動分隊、Excel 匯出 |
+| `apps/smallgroups` | 3006 | 小組（長期、跨活動）點名：出席、當天狀況、備註；自動帶入當天報到的孩子。網址前綴 `/groups` |
 | `packages/schema` | | **資料契約**：所有表的欄位、owner、狀態值、ID、角色（`src/tables.ts` 是核心） |
 | `packages/sheets-core` | | 資料存取 `SheetTable`（MongoDB / Google Sheets / 本機 JSON） |
 | `packages/auth` | | 登入、cookie `kids_session`、`requireSession` |
@@ -59,7 +60,7 @@ await checkIns(eventId).upsertByKey(['報名ID', '分組ID'], row); // 防重複
 
 ```bash
 npm install
-npm run dev                          # 五個一起，從 http://localhost:3001 進入
+npm run dev                          # 六個一起，從 http://localhost:3001 進入
 npm run dev -- --only admin,checkin  # 只開部分
 ```
 

@@ -5,6 +5,7 @@
     { "name": "checkin", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev:checkin"], "port": 3002 },
     { "name": "rollcall", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev:rollcall"], "port": 3003 },
     { "name": "admin", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev:admin"], "port": 3004 },
-    { "name": "data-tools", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev:data-tools"], "port": 3005 }
+    { "name": "data-tools", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev:data-tools"], "port": 3005 },
+    { "name": "smallgroups", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev:smallgroups"], "port": 3006 }
   ]
 }

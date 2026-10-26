@@ -1,4 +1,4 @@
-# 五個 app 共用的映像檔：docker build --build-arg APP=checkin .
+# 六個 app 共用的映像檔：docker build --build-arg APP=checkin .
 # NEXT_PUBLIC_* 會在 build 時寫進程式，所以由 build-arg 傳入；其餘設定在 Cloud Run 執行時注入。
 FROM node:20-alpine AS deps
 WORKDIR /repo
@@ -12,6 +12,7 @@ COPY apps/checkin/package.json apps/checkin/
 COPY apps/data-tools/package.json apps/data-tools/
 COPY apps/registration/package.json apps/registration/
 COPY apps/rollcall/package.json apps/rollcall/
+COPY apps/smallgroups/package.json apps/smallgroups/
 RUN npm ci --no-audit --no-fund
 
 FROM node:20-alpine AS build
@@ -24,6 +25,7 @@ ARG ADMIN_ORIGIN=""
 ARG CHECKIN_ORIGIN=""
 ARG ROLLCALL_ORIGIN=""
 ARG DATA_TOOLS_ORIGIN=""
+ARG SMALLGROUPS_ORIGIN=""
 ARG SITE_HOST=""
 ENV NEXT_TELEMETRY_DISABLED=1 \
     NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL \
@@ -33,6 +35,7 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
     CHECKIN_ORIGIN=$CHECKIN_ORIGIN \
     ROLLCALL_ORIGIN=$ROLLCALL_ORIGIN \
     DATA_TOOLS_ORIGIN=$DATA_TOOLS_ORIGIN \
+    SMALLGROUPS_ORIGIN=$SMALLGROUPS_ORIGIN \
     SITE_HOST=$SITE_HOST
 WORKDIR /repo
 # 連同各 workspace 底下的 node_modules 一起帶過來（例如 packages/sheets-core/node_modules/mongodb）

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 一次啟動五個 app（本機從 http://localhost:3001 進入統一入口）。
+ * 一次啟動六個 app（本機從 http://localhost:3001 進入統一入口）。
  *
  *   npm run dev
  *   npm run dev -- --only admin,checkin
@@ -10,8 +10,8 @@
 import { spawn } from 'node:child_process';
 import { parseArgs } from 'node:util';
 
-const APPS = ['registration', 'checkin', 'rollcall', 'admin', 'data-tools'];
-const COLORS = [32, 34, 33, 35, 36];
+const APPS = ['registration', 'checkin', 'rollcall', 'admin', 'data-tools', 'smallgroups'];
+const COLORS = [32, 34, 33, 35, 36, 92];
 
 const { values } = parseArgs({ options: { only: { type: 'string' } } });
 const selected = values.only ? values.only.split(',').map((s) => s.trim()).filter(Boolean) : APPS;
